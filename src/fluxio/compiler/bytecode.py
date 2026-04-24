@@ -17,6 +17,7 @@ class OpCode(StrEnum):
     FORK = "fork"
     JOIN = "join"
     ROUTE = "route"
+    JUMP = "jump"
     VALIDATE_INPUT = "validate_input"
     VALIDATE_OUTPUT = "validate_output"
     EMIT = "emit"
@@ -31,6 +32,7 @@ class Instruction:
     mode: ForkMode | None = None
     event_type: str | None = None
     route_map: tuple[tuple[str, int], ...] | None = None
+    target_ip: int | None = None
 
 
 @dataclass(frozen=True)

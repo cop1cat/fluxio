@@ -57,6 +57,7 @@ class Interpreter:
         step_timers: dict[str, float] = {}
         instructions = compiled.instructions
         ip = start_ip
+        pending_route: str | None = None
         try:
             while ip < len(instructions):
                 instr = instructions[ip]
@@ -88,9 +89,9 @@ class Interpreter:
                     result = await self._call(instr.node_id, fn, ctx, callbacks, run_id)
                     if isinstance(result, Send):
                         ctx = ctx.update(result.patch)
-                        ip = self._resolve_route(instructions, ip, result.route)
-                        continue
-                    ctx = result
+                        pending_route = result.route
+                    else:
+                        ctx = result
                 elif op == OpCode.FORK:
                     ip, ctx = await self._handle_fork(
                         instr, instructions, ip, ctx, compiled, callbacks, run_id
@@ -99,15 +100,17 @@ class Interpreter:
                 elif op == OpCode.JOIN:
                     pass
                 elif op == OpCode.ROUTE:
-                    assert instr.node_id is not None
-                    fn = compiled.symbol_table[instr.node_id]
-                    result = await self._call(instr.node_id, fn, ctx, callbacks, run_id)
-                    if not isinstance(result, Send):
+                    if pending_route is None:
                         raise RuntimeError(
-                            f"Stage {instr.node_id!r} compiled as ROUTE must return Send"
+                            "ROUTE instruction reached without a preceding Send"
                         )
-                    ctx = ctx.update(result.patch)
-                    ip = self._resolve_route_map(instr, result.route)
+                    ip = self._resolve_route_map(instr, pending_route)
+                    pending_route = None
+                    continue
+                elif op == OpCode.JUMP:
+                    if instr.target_ip is None:
+                        raise RuntimeError("JUMP instruction without target_ip")
+                    ip = instr.target_ip
                     continue
                 ip += 1
         except Exception as e:
@@ -235,16 +238,6 @@ class Interpreter:
                 ctx = Context.merge(ctx, results)
                 next_ip += 1
         return next_ip, ctx
-
-    @staticmethod
-    def _resolve_route(
-        instructions: tuple[Instruction, ...], ip: int, route: str
-    ) -> int:
-        for idx in range(ip + 1, len(instructions)):
-            instr = instructions[idx]
-            if instr.op == OpCode.EMIT and instr.node_id == route:
-                return idx
-        raise RuntimeError(f"Unknown route {route!r}")
 
     @staticmethod
     def _resolve_route_map(instr: Instruction, route: str) -> int:

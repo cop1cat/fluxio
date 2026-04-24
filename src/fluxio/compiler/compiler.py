@@ -40,9 +40,11 @@ class Compiler:
 
         instructions.append(Instruction(op=OpCode.EMIT, event_type="pipeline_start"))
 
-        normalized = self._auto_parallelize(nodes) if self._auto_parallel else nodes
+        normalized = self._auto_parallelize(nodes) if self._auto_parallel else list(nodes)
 
-        for node in normalized:
+        i = 0
+        while i < len(normalized):
+            node = normalized[i]
             if isinstance(node, Parallel):
                 self._compile_parallel(
                     node,
@@ -53,16 +55,35 @@ class Compiler:
                     input_schemas,
                     output_schemas,
                 )
-            else:
-                self._compile_stage(
-                    node,
-                    instructions,
-                    symbol_table,
-                    writes_map,
-                    reads_map,
-                    input_schemas,
-                    output_schemas,
+                i += 1
+            elif isinstance(node, dict):
+                raise CompilationError(
+                    "Route dict must follow a router stage, not be the first node"
                 )
+            else:
+                if i + 1 < len(normalized) and isinstance(normalized[i + 1], dict):
+                    self._compile_router_block(
+                        node,
+                        normalized[i + 1],
+                        instructions,
+                        symbol_table,
+                        writes_map,
+                        reads_map,
+                        input_schemas,
+                        output_schemas,
+                    )
+                    i += 2
+                else:
+                    self._compile_stage(
+                        node,
+                        instructions,
+                        symbol_table,
+                        writes_map,
+                        reads_map,
+                        input_schemas,
+                        output_schemas,
+                    )
+                    i += 1
 
         instructions.append(Instruction(op=OpCode.EMIT, event_type="pipeline_end"))
 
@@ -116,6 +137,77 @@ class Compiler:
         instructions.append(
             Instruction(op=OpCode.EMIT, event_type="step_end", node_id=node_id)
         )
+
+    def _compile_router_block(
+        self,
+        router: "StageFunc",
+        routes: dict[str, Any],
+        instructions: list[Instruction],
+        symbol_table: dict[str, "StageFunc"],
+        writes_map: dict[str, frozenset[str]],
+        reads_map: dict[str, frozenset[str]],
+        input_schemas: dict[str, type["BaseModel"]],
+        output_schemas: dict[str, type["BaseModel"]],
+    ) -> None:
+        self._compile_stage(
+            router,
+            instructions,
+            symbol_table,
+            writes_map,
+            reads_map,
+            input_schemas,
+            output_schemas,
+        )
+        route_map_ips: dict[str, int] = {}
+        route_ip_placeholder = len(instructions)
+        instructions.append(Instruction(op=OpCode.ROUTE, route_map=()))
+
+        jump_positions: list[int] = []
+        for route_name, body in routes.items():
+            route_map_ips[route_name] = len(instructions)
+            sub_nodes = self._unwrap_route_body(body)
+            normalized = (
+                self._auto_parallelize(sub_nodes) if self._auto_parallel else sub_nodes
+            )
+            for sub in normalized:
+                if isinstance(sub, Parallel):
+                    self._compile_parallel(
+                        sub,
+                        instructions,
+                        symbol_table,
+                        writes_map,
+                        reads_map,
+                        input_schemas,
+                        output_schemas,
+                    )
+                else:
+                    self._compile_stage(
+                        sub,
+                        instructions,
+                        symbol_table,
+                        writes_map,
+                        reads_map,
+                        input_schemas,
+                        output_schemas,
+                    )
+            jump_positions.append(len(instructions))
+            instructions.append(Instruction(op=OpCode.JUMP, target_ip=-1))
+
+        continuation_ip = len(instructions)
+        instructions[route_ip_placeholder] = Instruction(
+            op=OpCode.ROUTE,
+            route_map=tuple(route_map_ips.items()),
+        )
+        for pos in jump_positions:
+            instructions[pos] = Instruction(op=OpCode.JUMP, target_ip=continuation_ip)
+
+    @staticmethod
+    def _unwrap_route_body(body: Any) -> list[Any]:
+        if hasattr(body, "_nodes"):
+            return list(body._nodes)
+        if isinstance(body, list):
+            return body
+        return [body]
 
     def _compile_parallel(
         self,
