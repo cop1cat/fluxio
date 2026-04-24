@@ -178,4 +178,4 @@ fluxio/
 
 ## License
 
-MIT
+[MIT](LICENSE)

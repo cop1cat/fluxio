@@ -2,6 +2,9 @@
 name = "fluxio"
 version = "0.1.0"
 description = "Streamable, durable pipeline runtime for Python backend services."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "cop1cat" }]
 requires-python = ">=3.12"
 dependencies = [
     "pyrsistent>=0.20",
