@@ -1,7 +1,7 @@
 site_name: fluxio
 site_description: Streamable, durable pipeline runtime for Python backend services.
-site_url: https://example.github.io/fluxio/
-repo_url: https://github.com/example/fluxio
+site_url: https://cop1cat.github.io/fluxio/
+repo_url: https://github.com/cop1cat/fluxio
 repo_name: fluxio
 docs_dir: docs
 edit_uri: edit/main/docs/
