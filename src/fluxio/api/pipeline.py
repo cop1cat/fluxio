@@ -67,7 +67,7 @@ class Pipeline:
         self._scheduler = Scheduler(max_workers=max_workers)
         self._chain = MiddlewareChain(self._middleware)
         self._interpreter = Interpreter(self._scheduler, self._chain)
-        self._run_locks: dict[str, asyncio.Lock] = {}
+        self._active_runs: set[str] = set()
 
     @property
     def version(self) -> str:
@@ -139,15 +139,22 @@ class Pipeline:
                     durable=self._durable,
                 )
             finally:
-                await queue.put(sentinel)
+                with contextlib.suppress(asyncio.QueueFull):
+                    queue.put_nowait(sentinel)
 
         task = asyncio.create_task(driver())
-        while True:
-            item = await queue.get()
-            if item is sentinel:
-                break
-            yield item
-        await task
+        try:
+            while True:
+                item = await queue.get()
+                if item is sentinel:
+                    break
+                yield item
+            await task
+        finally:
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
 
     async def run_step(
         self,
@@ -253,14 +260,13 @@ class Pipeline:
         if not self._durable:
             yield
             return
-        lock = self._run_locks.setdefault(rid, asyncio.Lock())
-        if lock.locked():
+        if rid in self._active_runs:
             raise RunIDInUseError(f"run_id={rid!r} is already running")
-        async with lock:
-            try:
-                yield
-            finally:
-                self._run_locks.pop(rid, None)
+        self._active_runs.add(rid)
+        try:
+            yield
+        finally:
+            self._active_runs.discard(rid)
 
     async def __aenter__(self) -> Pipeline:
         return self

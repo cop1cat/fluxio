@@ -57,3 +57,5 @@ Generated from docstrings in the source.
 ::: fluxio.CircuitOpenError
 
 ::: fluxio.RunIDInUseError
+
+::: fluxio.CheckpointVersionError

@@ -57,3 +57,5 @@
 ::: fluxio.CircuitOpenError
 
 ::: fluxio.RunIDInUseError
+
+::: fluxio.CheckpointVersionError

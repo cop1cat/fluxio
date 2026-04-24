@@ -15,12 +15,14 @@ from fluxio.runtime.middleware import (
     RateLimitMiddleware,
     RetryMiddleware,
 )
+from fluxio.store.base import CheckpointVersionError
 from fluxio.store.memory import InMemoryStore
 
 __all__ = [
     "BaseCallback",
     "CacheMiddleware",
     "CacheStore",
+    "CheckpointVersionError",
     "CircuitBreakerMiddleware",
     "CircuitOpenError",
     "CompilationError",

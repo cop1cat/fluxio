@@ -57,3 +57,15 @@ class StepHarness:
 
     def close(self) -> None:
         self._thread_pool.shutdown(wait=False, cancel_futures=True)
+
+    def __enter__(self) -> StepHarness:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    async def __aenter__(self) -> StepHarness:
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        self.close()

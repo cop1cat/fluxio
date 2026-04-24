@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Preparing the initial `0.1.0` release.
 
+### Fixed
+
+- `pipe.stream(...)` no longer leaks the driver task if the consumer breaks out
+  of the `async for` loop.
+- Durable resume now replays `step_start`, input validation, and the failed
+  `CALL` cleanly (`CHECKPOINT` opcode moved before the step's `EMIT`; error path
+  no longer overwrites the last successful checkpoint with a wrong instruction
+  pointer).
+- `RunIDInUseError` is now raised deterministically under concurrent `invoke`
+  with the same `run_id` (replaced TOCTOU `Lock.locked()` check with a set-based
+  active-run tracker).
+- `on_pipeline_end` receives a real elapsed duration instead of a hardcoded `0`.
+- `CheckpointVersionError` is now exported from the public `fluxio` module.
+- `StepHarness` implements sync and async context managers — `with StepHarness(fn) as h:`
+  auto-closes the thread pool.
+- Auto-parallelism no longer folds a router stage into a `Parallel` block with
+  its neighbour, which previously broke `[preamble, router, {"x": ...}]`
+  pipelines when `preamble` and `router` had disjoint reads/writes.
+- `Executor._run_stream` awaits the cancelled producer task so no `CancelledError`
+  leaks after an interrupted stream.
+
+### Changed
+
+- Auto-parallelism log line downgraded from `warning` to `debug`.
+
 ### Added
 
 - Public `Pipeline` API with `invoke`, `stream`, `run_step`, `replay`, `diff`, and

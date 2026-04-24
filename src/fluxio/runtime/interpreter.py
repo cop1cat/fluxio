@@ -60,6 +60,7 @@ class Interpreter:
             await store.delete(run_id)
 
         step_timers: dict[str, float] = {}
+        pipeline_started_at = time.monotonic()
         instructions = compiled.instructions
         ip = start_ip
         pending_route: str | None = None
@@ -69,7 +70,9 @@ class Interpreter:
                 instr = instructions[ip]
                 op = instr.op
                 if op == OpCode.EMIT:
-                    await self._emit(instr, run_id, ctx, callbacks, step_timers)
+                    await self._emit(
+                        instr, run_id, ctx, callbacks, step_timers, pipeline_started_at
+                    )
                 elif op == OpCode.CHECKPOINT:
                     if durable and store is not None:
                         await store.save(
@@ -123,17 +126,8 @@ class Interpreter:
             step_name = self._current_step(instructions, ip)
             for cb in callbacks:
                 await cb.on_error(run_id, step_name, e)
-            if durable and store is not None:
-                await store.save(
-                    Checkpoint(
-                        run_id=run_id,
-                        pipeline_version=compiled.version,
-                        ip=ip,
-                        ctx_snapshot=ctx.snapshot(),
-                        created_at=time.time(),
-                        error=True,
-                    )
-                )
+            # On failure we preserve the last successful CHECKPOINT untouched.
+            # Resume from it replays step_start / VALIDATE_INPUT / CALL cleanly.
             raise
         if durable and store is not None:
             await store.delete(run_id)
@@ -146,6 +140,7 @@ class Interpreter:
         ctx: Context,
         callbacks: list[BaseCallback],
         step_timers: dict[str, float],
+        pipeline_started_at: float,
     ) -> None:
         event = instr.event_type
         node_id = instr.node_id
@@ -153,7 +148,8 @@ class Interpreter:
             if event == "pipeline_start":
                 await cb.on_pipeline_start(run_id, ctx)
             elif event == "pipeline_end":
-                await cb.on_pipeline_end(run_id, ctx, 0)
+                duration_ms = int((time.monotonic() - pipeline_started_at) * 1000)
+                await cb.on_pipeline_end(run_id, ctx, duration_ms)
             elif event == "step_start" and node_id is not None:
                 step_timers[node_id] = time.monotonic()
                 await cb.on_step_start(run_id, node_id, ctx)

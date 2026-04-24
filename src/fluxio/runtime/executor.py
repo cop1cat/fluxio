@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+import contextlib
 from typing import TYPE_CHECKING, Any
 
 from fluxio.api.primitives import NodeType
@@ -67,5 +68,7 @@ class Executor:
             await task
         except BaseException:
             task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
             raise
         return ctx.set(f"{node_id}_stream_result", accumulated)

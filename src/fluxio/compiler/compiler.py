@@ -119,10 +119,12 @@ class Compiler:
             input_schemas,
             output_schemas,
         )
+        # CHECKPOINT before step_start so that resume replays the full stage
+        # (step_start EMIT, input validation, and CALL) from the saved ip.
+        instructions.append(Instruction(op=OpCode.CHECKPOINT, node_id=node_id))
         instructions.append(Instruction(op=OpCode.EMIT, event_type="step_start", node_id=node_id))
         if node_id in input_schemas:
             instructions.append(Instruction(op=OpCode.VALIDATE_INPUT, node_id=node_id))
-        instructions.append(Instruction(op=OpCode.CHECKPOINT, node_id=node_id))
         instructions.append(Instruction(op=OpCode.CALL, node_id=node_id))
         if node_id in output_schemas:
             instructions.append(Instruction(op=OpCode.VALIDATE_OUTPUT, node_id=node_id))
@@ -245,21 +247,31 @@ class Compiler:
         i = 0
         while i < len(nodes):
             current = nodes[i]
-            if isinstance(current, Parallel):
+            if isinstance(current, Parallel | dict):
+                result.append(current)
+                i += 1
+                continue
+            # Do not fold a stage that is immediately followed by a route dict —
+            # that stage is the router and must remain adjacent to the dict.
+            next_is_dict = i + 1 < len(nodes) and isinstance(nodes[i + 1], dict)
+            if next_is_dict:
                 result.append(current)
                 i += 1
                 continue
             group: list[Node] = [current]
             j = i + 1
-            while j < len(nodes) and not isinstance(nodes[j], Parallel):
+            while j < len(nodes) and not isinstance(nodes[j], Parallel | dict):
                 candidate = nodes[j]
+                # Stop before a router: the stage at j must stay next to the dict at j+1.
+                if j + 1 < len(nodes) and isinstance(nodes[j + 1], dict):
+                    break
                 if self._independent(group, candidate):
                     group.append(candidate)
                     j += 1
                 else:
                     break
             if len(group) > 1:
-                _logger.warning(
+                _logger.debug(
                     "auto-parallelized independent stages: %s",
                     [getattr(n, "__name__", repr(n)) for n in group],
                 )
