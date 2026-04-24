@@ -21,6 +21,12 @@ _logger = logging.getLogger("fluxio.middleware")
 Next = Callable[["StageFunc", "Context"], Awaitable["Context"]]
 
 
+def _is_stream(fn: object) -> bool:
+    from fluxio.api.primitives import NodeType
+
+    return getattr(fn, "__fluxio_node_type__", None) == NodeType.STREAM
+
+
 class Middleware(ABC):
     @abstractmethod
     async def __call__(
@@ -57,8 +63,8 @@ class MiddlewareChain:
 class RetryMiddleware(Middleware):
     """Retries the stage up to ``max_attempts`` times on matching exceptions.
 
-    Not safe to use with STREAM stages: partial chunks emitted on the first
-    attempt are already delivered to callbacks / consumers.
+    Bypassed for STREAM stages — partial chunks are already delivered on the
+    first attempt, so retrying would produce duplicate output.
     """
 
     def __init__(
@@ -74,6 +80,8 @@ class RetryMiddleware(Middleware):
         self.exceptions = exceptions
 
     async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
+        if _is_stream(fn):
+            return await next(fn, ctx)
         last: Exception | None = None
         for attempt in range(1, self.max_attempts + 1):
             try:
@@ -104,7 +112,7 @@ class RetryMiddleware(Middleware):
 class CacheMiddleware(Middleware):
     """Memoizes stage output in a ``CacheStore`` keyed by stage name + ctx hash.
 
-    Defaults to an in-process ``InMemoryCache``. Not safe for STREAM stages.
+    Defaults to an in-process ``InMemoryCache``. Bypassed for STREAM stages.
     """
 
     def __init__(
@@ -120,6 +128,9 @@ class CacheMiddleware(Middleware):
         self.key_fn = key_fn
 
     async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
+        if _is_stream(fn):
+            return await next(fn, ctx)
+
         from fluxio.context.context import Context as _Ctx
         from fluxio.runtime.cache import CacheEntry
 

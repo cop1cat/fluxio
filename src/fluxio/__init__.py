@@ -1,5 +1,5 @@
 from fluxio.api.parallel import Parallel
-from fluxio.api.pipeline import Pipeline
+from fluxio.api.pipeline import Pipeline, RunIDInUseError
 from fluxio.api.primitives import ForkMode, NodeResult, NodeType, Send
 from fluxio.api.stage import stage
 from fluxio.compiler.compiler import CompilationError
@@ -37,6 +37,7 @@ __all__ = [
     "Pipeline",
     "RateLimitMiddleware",
     "RetryMiddleware",
+    "RunIDInUseError",
     "Send",
     "stage",
 ]

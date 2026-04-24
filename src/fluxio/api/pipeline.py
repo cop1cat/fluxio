@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 import uuid
@@ -15,7 +16,7 @@ from fluxio.runtime.scheduler import Scheduler
 from fluxio.store.memory import InMemoryStore
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, AsyncIterator
 
     from fluxio.api.primitives import StageFunc
     from fluxio.observability.base import BaseCallback
@@ -25,6 +26,10 @@ if TYPE_CHECKING:
 _logger = logging.getLogger("fluxio.pipeline")
 
 PipelineNode = "StageFunc | Parallel | dict[str, Any]"
+
+
+class RunIDInUseError(RuntimeError):
+    """Raised when a durable invoke is attempted with a run_id already in progress."""
 
 
 class Pipeline:
@@ -62,6 +67,7 @@ class Pipeline:
         self._scheduler = Scheduler(max_workers=max_workers)
         self._chain = MiddlewareChain(self._middleware)
         self._interpreter = Interpreter(self._scheduler, self._chain)
+        self._run_locks: dict[str, asyncio.Lock] = {}
 
     @property
     def version(self) -> str:
@@ -87,15 +93,16 @@ class Pipeline:
         """
         ctx = self._coerce_ctx(initial_ctx)
         rid = run_id or uuid.uuid4().hex
-        return await self._interpreter.run(
-            self._compiled,
-            ctx,
-            rid,
-            self._callbacks,
-            store=self._store,
-            durable=self._durable,
-            resume=resume,
-        )
+        async with self._acquire_run(rid):
+            return await self._interpreter.run(
+                self._compiled,
+                ctx,
+                rid,
+                self._callbacks,
+                store=self._store,
+                durable=self._durable,
+                resume=resume,
+            )
 
     async def stream(
         self,
@@ -240,6 +247,20 @@ class Pipeline:
 
     def shutdown(self) -> None:
         self._scheduler.shutdown()
+
+    @contextlib.asynccontextmanager
+    async def _acquire_run(self, rid: str) -> AsyncIterator[None]:
+        if not self._durable:
+            yield
+            return
+        lock = self._run_locks.setdefault(rid, asyncio.Lock())
+        if lock.locked():
+            raise RunIDInUseError(f"run_id={rid!r} is already running")
+        async with lock:
+            try:
+                yield
+            finally:
+                self._run_locks.pop(rid, None)
 
     async def __aenter__(self) -> Pipeline:
         return self

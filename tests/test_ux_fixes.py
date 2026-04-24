@@ -75,6 +75,48 @@ async def test_stream_yields_chunks_only():
     assert got == [0, 1, 2]
 
 
+async def test_concurrent_durable_run_id_rejected():
+    from fluxio import InMemoryStore, RunIDInUseError
+
+    @stage
+    async def slow(ctx):
+        await asyncio.sleep(0.1)
+        return ctx.set("done", True)
+
+    async with Pipeline(
+        [slow],
+        checkpoint_store=InMemoryStore(),
+        durable=True,
+        auto_parallel=False,
+    ) as pipe:
+        first = asyncio.create_task(pipe.invoke({}, run_id="r"))
+        await asyncio.sleep(0.01)
+        with pytest.raises(RunIDInUseError):
+            await pipe.invoke({}, run_id="r")
+        result = await first
+        assert result.get("done") is True
+
+
+async def test_retry_bypassed_for_stream():
+    from fluxio import RetryMiddleware
+
+    calls = {"n": 0}
+
+    @stage
+    async def producer(ctx):
+        calls["n"] += 1
+        yield "only-chunk"
+
+    async with Pipeline(
+        [producer],
+        middleware=[RetryMiddleware(max_attempts=5, base_delay=0.0)],
+        auto_parallel=False,
+    ) as pipe:
+        chunks = [c async for c in pipe.stream({})]
+    assert chunks == ["only-chunk"]
+    assert calls["n"] == 1
+
+
 async def test_concurrent_streams_do_not_mix():
     @stage
     async def producer(ctx):
