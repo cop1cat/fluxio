@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
+import json
 from typing import Any
 
 from fluxio.store.base import Checkpoint, CheckpointStore
@@ -18,8 +18,7 @@ class RedisStore(CheckpointStore):
             from redis.asyncio import from_url
         except ImportError as e:
             raise ImportError(
-                "redis is required for RedisStore. "
-                "Install with: pip install fluxio[redis]"
+                "redis is required for RedisStore. Install with: pip install fluxio[redis]"
             ) from e
         self._client: Any = from_url(url, decode_responses=True)
         self._ttl = ttl

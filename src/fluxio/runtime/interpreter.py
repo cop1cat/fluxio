@@ -5,14 +5,15 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from fluxio.api.primitives import ForkMode, Send
-from fluxio.compiler.bytecode import CompiledPipeline, Instruction, OpCode
+from fluxio.compiler.bytecode import OpCode
 from fluxio.context.context import Context
-from fluxio.runtime.middleware import MiddlewareChain
 from fluxio.store.base import Checkpoint, CheckpointVersionError
 
 if TYPE_CHECKING:
     from fluxio.api.primitives import StageFunc
+    from fluxio.compiler.bytecode import CompiledPipeline, Instruction
     from fluxio.observability.base import BaseCallback
+    from fluxio.runtime.middleware import MiddlewareChain
     from fluxio.runtime.scheduler import Scheduler
     from fluxio.store.base import CheckpointStore
 
@@ -22,7 +23,7 @@ _logger = logging.getLogger("fluxio.interpreter")
 class Interpreter:
     def __init__(
         self,
-        scheduler: "Scheduler",
+        scheduler: Scheduler,
         middleware_chain: MiddlewareChain,
     ) -> None:
         self._scheduler = scheduler
@@ -33,8 +34,8 @@ class Interpreter:
         compiled: CompiledPipeline,
         ctx: Context,
         run_id: str,
-        callbacks: list["BaseCallback"],
-        store: "CheckpointStore | None" = None,
+        callbacks: list[BaseCallback],
+        store: CheckpointStore | None = None,
         durable: bool = False,
         force_restart: bool = False,
     ) -> Context:
@@ -53,7 +54,6 @@ class Interpreter:
                 start_ip = existing.ip
                 _logger.info("Resuming run_id=%s from ip=%d", run_id, start_ip)
 
-        pipeline_start = time.monotonic()
         step_timers: dict[str, float] = {}
         instructions = compiled.instructions
         ip = start_ip
@@ -76,9 +76,7 @@ class Interpreter:
                             )
                         )
                         for cb in callbacks:
-                            await cb.on_checkpoint(
-                                run_id, instr.node_id or "?", ip
-                            )
+                            await cb.on_checkpoint(run_id, instr.node_id or "?", ip)
                 elif op == OpCode.VALIDATE_INPUT:
                     self._validate(instr, ctx, compiled, input=True)
                 elif op == OpCode.VALIDATE_OUTPUT:
@@ -101,9 +99,7 @@ class Interpreter:
                     pass
                 elif op == OpCode.ROUTE:
                     if pending_route is None:
-                        raise RuntimeError(
-                            "ROUTE instruction reached without a preceding Send"
-                        )
+                        raise RuntimeError("ROUTE instruction reached without a preceding Send")
                     ip = self._resolve_route_map(instr, pending_route)
                     pending_route = None
                     continue
@@ -129,7 +125,6 @@ class Interpreter:
                     )
                 )
             raise
-        duration = int((time.monotonic() - pipeline_start) * 1000)
         if durable and store is not None:
             await store.delete(run_id)
         return ctx
@@ -139,7 +134,7 @@ class Interpreter:
         instr: Instruction,
         run_id: str,
         ctx: Context,
-        callbacks: list["BaseCallback"],
+        callbacks: list[BaseCallback],
         step_timers: dict[str, float],
     ) -> None:
         event = instr.event_type
@@ -154,9 +149,7 @@ class Interpreter:
                 await cb.on_step_start(run_id, node_id, ctx)
             elif event == "step_end" and node_id is not None:
                 start = step_timers.pop(node_id, time.monotonic())
-                await cb.on_step_end(
-                    run_id, node_id, ctx, int((time.monotonic() - start) * 1000)
-                )
+                await cb.on_step_end(run_id, node_id, ctx, int((time.monotonic() - start) * 1000))
             elif event == "branch" and instr.branch_ids is not None:
                 await cb.on_branch(run_id, list(instr.branch_ids))
 
@@ -179,23 +172,22 @@ class Interpreter:
             schema.model_validate(ctx.snapshot())
         except Exception as e:
             raise RuntimeError(
-                f"{'Input' if input else 'Output'} validation failed for "
-                f"{instr.node_id!r}: {e}"
+                f"{'Input' if input else 'Output'} validation failed for {instr.node_id!r}: {e}"
             ) from e
 
     async def _call(
         self,
         node_id: str,
-        fn: "StageFunc",
+        fn: StageFunc,
         ctx: Context,
-        callbacks: list["BaseCallback"],
+        callbacks: list[BaseCallback],
         run_id: str,
     ) -> Any:
         async def emit_stream(nid: str, chunk: Any) -> None:
             for cb in callbacks:
                 await cb.on_step_stream(run_id, nid, chunk)
 
-        async def terminal(f: "StageFunc", c: Context) -> Any:
+        async def terminal(f: StageFunc, c: Context) -> Any:
             return await self._scheduler.executor.run(node_id, f, c, emit_stream)
 
         return await self._chain.run(fn, ctx, terminal)  # type: ignore[return-value]
@@ -207,7 +199,7 @@ class Interpreter:
         ip: int,
         ctx: Context,
         compiled: CompiledPipeline,
-        callbacks: list["BaseCallback"],
+        callbacks: list[BaseCallback],
         run_id: str,
     ) -> tuple[int, Context]:
         assert instr.branch_ids is not None
@@ -216,7 +208,7 @@ class Interpreter:
             fn = compiled.symbol_table[bid]
             branches.append((bid, fn, ctx.fork(bid)))
 
-        async def runner(fn: "StageFunc", c: Context, nid: str) -> Context:
+        async def runner(fn: StageFunc, c: Context, nid: str) -> Context:
             for cb in callbacks:
                 await cb.on_step_start(run_id, nid, c)
             start = time.monotonic()
@@ -226,17 +218,20 @@ class Interpreter:
                     f"Stage {nid!r} in FORK returned Send; not supported in parallel branches"
                 )
             for cb in callbacks:
-                await cb.on_step_end(
-                    run_id, nid, result, int((time.monotonic() - start) * 1000)
-                )
+                await cb.on_step_end(run_id, nid, result, int((time.monotonic() - start) * 1000))
             return result
 
-        results = await self._scheduler.run_parallel(branches, instr.mode or ForkMode.PARALLEL, runner)
+        results = await self._scheduler.run_parallel(
+            branches, instr.mode or ForkMode.PARALLEL, runner
+        )
         next_ip = ip + 1
-        if instr.mode == ForkMode.PARALLEL:
-            if next_ip < len(instructions) and instructions[next_ip].op == OpCode.JOIN:
-                ctx = Context.merge(ctx, results)
-                next_ip += 1
+        if (
+            instr.mode == ForkMode.PARALLEL
+            and next_ip < len(instructions)
+            and instructions[next_ip].op == OpCode.JOIN
+        ):
+            ctx = Context.merge(ctx, results)
+            next_ip += 1
         return next_ip, ctx
 
     @staticmethod

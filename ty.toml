@@ -20,7 +20,7 @@ invalid-assignment       = "error"
 index-out-of-bounds      = "error"
 unsupported-operator     = "error"
 call-non-callable        = "error"
-possibly-unbound         = "error"
+possibly-unresolved-reference         = "error"
 
 unused-ignore-comment    = "warn"
 deprecated               = "warn"
@@ -30,4 +30,4 @@ possibly-missing-import  = "ignore"
 
 [[overrides]]
 include = ["tests/**"]
-rules = { possibly-unbound = "warn" }
+rules = { possibly-unresolved-reference = "warn" }

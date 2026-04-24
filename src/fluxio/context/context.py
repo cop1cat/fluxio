@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pyrsistent import PMap, pmap
+from pyrsistent import pmap
+
+if TYPE_CHECKING:
+    from pyrsistent import PMap
 
 _MISSING: Any = object()
 

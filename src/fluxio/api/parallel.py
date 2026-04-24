@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fluxio.api.primitives import ForkMode
@@ -11,6 +11,6 @@ if TYPE_CHECKING:
 
 @dataclass
 class Parallel:
-    branches: "list[StageFunc]"
+    branches: list[StageFunc]
     mode: ForkMode = ForkMode.PARALLEL
     name: str | None = None

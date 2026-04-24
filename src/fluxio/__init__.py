@@ -17,29 +17,29 @@ from fluxio.runtime.middleware import (
 from fluxio.store.memory import InMemoryStore
 
 __all__ = [
-    "Pipeline",
-    "Parallel",
-    "stage",
-    "NodeType",
-    "Send",
-    "NodeResult",
-    "ForkMode",
-    "Context",
-    "MergeConflictError",
-    "Middleware",
-    "RetryMiddleware",
+    "BaseCallback",
     "CacheMiddleware",
     "CircuitBreakerMiddleware",
     "CircuitOpenError",
-    "RateLimitMiddleware",
-    "InMemoryStore",
-    "BaseCallback",
-    "LoggingCallback",
     "CompilationError",
+    "Context",
+    "ForkMode",
+    "InMemoryStore",
+    "LoggingCallback",
+    "MergeConflictError",
+    "Middleware",
+    "NodeResult",
+    "NodeType",
+    "Parallel",
+    "Pipeline",
+    "RateLimitMiddleware",
+    "RetryMiddleware",
+    "Send",
+    "stage",
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name == "RedisStore":
         from fluxio.store.redis import RedisStore
 

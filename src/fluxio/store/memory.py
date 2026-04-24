@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
-from fluxio.store.base import Checkpoint, CheckpointStore
+from fluxio.store.base import CheckpointStore
+
+if TYPE_CHECKING:
+    from fluxio.store.base import Checkpoint
 
 
 class InMemoryStore(CheckpointStore):

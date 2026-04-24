@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
-from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
+import uuid
 
 from fluxio.api.parallel import Parallel
 from fluxio.api.primitives import NodeType
@@ -16,6 +15,8 @@ from fluxio.runtime.scheduler import Scheduler
 from fluxio.store.memory import InMemoryStore
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
     from fluxio.api.primitives import StageFunc
     from fluxio.observability.base import BaseCallback
     from fluxio.runtime.middleware import Middleware
@@ -23,15 +24,17 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger("fluxio.pipeline")
 
+PipelineNode = "StageFunc | Parallel | dict[str, Any]"
+
 
 class Pipeline:
     def __init__(
         self,
-        nodes: "list[StageFunc | Parallel]",
+        nodes: list[StageFunc | Parallel | dict[str, Any]],
         *,
-        middleware: "list[Middleware] | None" = None,
-        callbacks: "list[BaseCallback] | None" = None,
-        checkpoint_store: "CheckpointStore | None" = None,
+        middleware: list[Middleware] | None = None,
+        callbacks: list[BaseCallback] | None = None,
+        checkpoint_store: CheckpointStore | None = None,
         durable: bool = False,
         dev: bool = False,
         max_workers: int | None = None,
@@ -54,7 +57,7 @@ class Pipeline:
 
     async def invoke(
         self,
-        initial_ctx: "dict[str, Any] | Context",
+        initial_ctx: dict[str, Any] | Context,
         *,
         run_id: str | None = None,
         force_restart: bool = False,
@@ -73,7 +76,7 @@ class Pipeline:
 
     async def stream(
         self,
-        initial_ctx: "dict[str, Any] | Context",
+        initial_ctx: dict[str, Any] | Context,
         *,
         run_id: str | None = None,
     ) -> AsyncGenerator[Any, None]:
@@ -110,7 +113,7 @@ class Pipeline:
     async def run_step(
         self,
         step_name: str,
-        ctx: "dict[str, Any] | Context",
+        ctx: dict[str, Any] | Context,
     ) -> Context:
         fn = self._compiled.symbol_table.get(step_name)
         if fn is None:
@@ -118,7 +121,7 @@ class Pipeline:
         c = self._coerce_ctx(ctx)
         from fluxio.api.primitives import Send
 
-        async def terminal(f: "StageFunc", cc: Context) -> Any:
+        async def terminal(f: StageFunc, cc: Context) -> Any:
             return await self._scheduler.executor.run(step_name, f, cc, None)
 
         result = await self._chain.run(fn, c, terminal)
@@ -209,12 +212,16 @@ class Pipeline:
         from fluxio.compiler.bytecode import OpCode
 
         for idx, instr in enumerate(self._compiled.instructions):
-            if instr.op == OpCode.EMIT and instr.event_type == "step_start" and instr.node_id == step_name:
+            if (
+                instr.op == OpCode.EMIT
+                and instr.event_type == "step_start"
+                and instr.node_id == step_name
+            ):
                 return idx
         raise KeyError(f"No step {step_name!r} found in compiled pipeline")
 
     @staticmethod
-    def _coerce_ctx(value: "dict[str, Any] | Context") -> Context:
+    def _coerce_ctx(value: dict[str, Any] | Context) -> Context:
         if isinstance(value, Context):
             return value
         return Context.create(value)

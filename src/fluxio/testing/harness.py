@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 from concurrent.futures import ThreadPoolExecutor
+import os
 from typing import TYPE_CHECKING, Any
 
 from fluxio.api.primitives import Send
@@ -17,19 +17,19 @@ if TYPE_CHECKING:
 class StepHarness:
     def __init__(
         self,
-        fn: "StageFunc",
-        middleware: "list[Middleware] | None" = None,
+        fn: StageFunc,
+        middleware: list[Middleware] | None = None,
     ) -> None:
         self._fn = fn
         self._chain = MiddlewareChain(list(middleware or []))
         self._thread_pool = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)
         self._executor = Executor(self._thread_pool)
 
-    async def run(self, ctx: "dict[str, Any] | Context") -> Context:
+    async def run(self, ctx: dict[str, Any] | Context) -> Context:
         c = ctx if isinstance(ctx, Context) else Context.create(ctx)
         node_id = getattr(self._fn, "__name__", "stage")
 
-        async def terminal(fn: "StageFunc", cc: Context) -> Any:
+        async def terminal(fn: StageFunc, cc: Context) -> Any:
             return await self._executor.run(node_id, fn, cc, None)
 
         result = await self._chain.run(self._fn, c, terminal)
@@ -37,7 +37,7 @@ class StepHarness:
             return c.update(result.patch)
         return result
 
-    async def run_stream(self, ctx: "dict[str, Any] | Context") -> list[Any]:
+    async def run_stream(self, ctx: dict[str, Any] | Context) -> list[Any]:
         c = ctx if isinstance(ctx, Context) else Context.create(ctx)
         node_id = getattr(self._fn, "__name__", "stage")
         chunks: list[Any] = []
@@ -49,15 +49,11 @@ class StepHarness:
         return chunks
 
     @staticmethod
-    def assert_writes(
-        ctx_before: Context, ctx_after: Context, keys: set[str]
-    ) -> None:
+    def assert_writes(ctx_before: Context, ctx_after: Context, keys: set[str]) -> None:
         actual = ctx_after._written
         expected = frozenset(keys)
         if actual != expected:
-            raise AssertionError(
-                f"Expected writes={sorted(expected)}, got={sorted(actual)}"
-            )
+            raise AssertionError(f"Expected writes={sorted(expected)}, got={sorted(actual)}")
 
     def close(self) -> None:
         self._thread_pool.shutdown(wait=False, cancel_futures=True)

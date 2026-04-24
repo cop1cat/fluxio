@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import asyncio
+from collections import deque
+from collections.abc import Awaitable, Callable
 import hashlib
 import json
 import logging
 import random
 import time
-from abc import ABC, abstractmethod
-from collections import deque
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -25,10 +25,10 @@ class Middleware(ABC):
     @abstractmethod
     async def __call__(
         self,
-        fn: "StageFunc",
-        ctx: "Context",
+        fn: StageFunc,
+        ctx: Context,
         next: Next,
-    ) -> "Context": ...
+    ) -> Context: ...
 
 
 class MiddlewareChain:
@@ -37,10 +37,10 @@ class MiddlewareChain:
 
     async def run(
         self,
-        fn: "StageFunc",
-        ctx: "Context",
+        fn: StageFunc,
+        ctx: Context,
         terminal: Next,
-    ) -> "Context":
+    ) -> Context:
         chain: Next = terminal
         for mw in reversed(self._middlewares):
             chain = self._wrap(mw, chain)
@@ -48,7 +48,7 @@ class MiddlewareChain:
 
     @staticmethod
     def _wrap(mw: Middleware, nxt: Next) -> Next:
-        async def run(fn: "StageFunc", ctx: "Context") -> "Context":
+        async def run(fn: StageFunc, ctx: Context) -> Context:
             return await mw(fn, ctx, nxt)
 
         return run
@@ -67,9 +67,7 @@ class RetryMiddleware(Middleware):
         self.base_delay = base_delay
         self.exceptions = exceptions
 
-    async def __call__(
-        self, fn: "StageFunc", ctx: "Context", next: Next
-    ) -> "Context":
+    async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
         last: Exception | None = None
         for attempt in range(1, self.max_attempts + 1):
             try:
@@ -100,17 +98,15 @@ class RetryMiddleware(Middleware):
 class CacheMiddleware(Middleware):
     def __init__(
         self,
-        store: "CheckpointStore",
+        store: CheckpointStore,
         ttl: int = 300,
-        key_fn: Callable[["StageFunc", "Context"], str] | None = None,
+        key_fn: Callable[[StageFunc, Context], str] | None = None,
     ) -> None:
         self.store = store
         self.ttl = ttl
         self.key_fn = key_fn
 
-    async def __call__(
-        self, fn: "StageFunc", ctx: "Context", next: Next
-    ) -> "Context":
+    async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
         from fluxio.context.context import Context as _Ctx
         from fluxio.store.base import Checkpoint
 
@@ -134,7 +130,7 @@ class CacheMiddleware(Middleware):
         )
         return result
 
-    def _build_key(self, fn: "StageFunc", ctx: "Context") -> str:
+    def _build_key(self, fn: StageFunc, ctx: Context) -> str:
         if self.key_fn is not None:
             return self.key_fn(fn, ctx)
         node_id = getattr(fn, "__name__", "?")
@@ -165,18 +161,14 @@ class CircuitBreakerMiddleware(Middleware):
         self._opened_at: float | None = None
         self._lock = asyncio.Lock()
 
-    async def __call__(
-        self, fn: "StageFunc", ctx: "Context", next: Next
-    ) -> "Context":
+    async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
         async with self._lock:
             if self._state == "open":
                 assert self._opened_at is not None
                 if time.monotonic() - self._opened_at >= self.recovery_timeout:
                     self._state = "half_open"
                 else:
-                    raise CircuitOpenError(
-                        f"Circuit open for stage {getattr(fn, '__name__', '?')}"
-                    )
+                    raise CircuitOpenError(f"Circuit open for stage {getattr(fn, '__name__', '?')}")
         try:
             result = await next(fn, ctx)
         except self.exceptions:
@@ -201,9 +193,7 @@ class RateLimitMiddleware(Middleware):
         self._window: deque[float] = deque()
         self._lock = asyncio.Lock()
 
-    async def __call__(
-        self, fn: "StageFunc", ctx: "Context", next: Next
-    ) -> "Context":
+    async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
         while True:
             async with self._lock:
                 now = time.monotonic()
@@ -218,12 +208,12 @@ class RateLimitMiddleware(Middleware):
 
 
 __all__ = [
-    "Middleware",
-    "MiddlewareChain",
-    "Next",
-    "RetryMiddleware",
     "CacheMiddleware",
     "CircuitBreakerMiddleware",
     "CircuitOpenError",
+    "Middleware",
+    "MiddlewareChain",
+    "Next",
     "RateLimitMiddleware",
+    "RetryMiddleware",
 ]

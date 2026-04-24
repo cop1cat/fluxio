@@ -4,12 +4,10 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from fluxio.api.primitives import ForkMode
-
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from fluxio.api.primitives import StageFunc
+    from fluxio.api.primitives import ForkMode, StageFunc
 
 
 class OpCode(StrEnum):
@@ -38,9 +36,9 @@ class Instruction:
 @dataclass(frozen=True)
 class CompiledPipeline:
     instructions: tuple[Instruction, ...]
-    symbol_table: dict[str, "StageFunc"] = field(default_factory=dict)
+    symbol_table: dict[str, StageFunc] = field(default_factory=dict)
     writes_map: dict[str, frozenset[str]] = field(default_factory=dict)
     reads_map: dict[str, frozenset[str]] = field(default_factory=dict)
-    input_schemas: dict[str, "type[BaseModel]"] = field(default_factory=dict)
-    output_schemas: dict[str, "type[BaseModel]"] = field(default_factory=dict)
+    input_schemas: dict[str, type[BaseModel]] = field(default_factory=dict)
+    output_schemas: dict[str, type[BaseModel]] = field(default_factory=dict)
     version: str = ""

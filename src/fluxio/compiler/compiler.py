@@ -32,7 +32,7 @@ class Compiler:
 
     def compile(self, nodes: list[Node]) -> CompiledPipeline:
         instructions: list[Instruction] = []
-        symbol_table: dict[str, "StageFunc"] = {}
+        symbol_table: dict[str, StageFunc] = {}
         writes_map: dict[str, frozenset[str]] = {}
         reads_map: dict[str, frozenset[str]] = {}
         input_schemas: dict[str, type[BaseModel]] = {}
@@ -101,13 +101,13 @@ class Compiler:
 
     def _compile_stage(
         self,
-        fn: "StageFunc",
+        fn: StageFunc,
         instructions: list[Instruction],
-        symbol_table: dict[str, "StageFunc"],
+        symbol_table: dict[str, StageFunc],
         writes_map: dict[str, frozenset[str]],
         reads_map: dict[str, frozenset[str]],
-        input_schemas: dict[str, type["BaseModel"]],
-        output_schemas: dict[str, type["BaseModel"]],
+        input_schemas: dict[str, type[BaseModel]],
+        output_schemas: dict[str, type[BaseModel]],
     ) -> None:
         node_id = self._node_id(fn, symbol_table)
         self._register(
@@ -119,35 +119,25 @@ class Compiler:
             input_schemas,
             output_schemas,
         )
-        instructions.append(
-            Instruction(op=OpCode.EMIT, event_type="step_start", node_id=node_id)
-        )
+        instructions.append(Instruction(op=OpCode.EMIT, event_type="step_start", node_id=node_id))
         if node_id in input_schemas:
-            instructions.append(
-                Instruction(op=OpCode.VALIDATE_INPUT, node_id=node_id)
-            )
-        instructions.append(
-            Instruction(op=OpCode.CHECKPOINT, node_id=node_id)
-        )
+            instructions.append(Instruction(op=OpCode.VALIDATE_INPUT, node_id=node_id))
+        instructions.append(Instruction(op=OpCode.CHECKPOINT, node_id=node_id))
         instructions.append(Instruction(op=OpCode.CALL, node_id=node_id))
         if node_id in output_schemas:
-            instructions.append(
-                Instruction(op=OpCode.VALIDATE_OUTPUT, node_id=node_id)
-            )
-        instructions.append(
-            Instruction(op=OpCode.EMIT, event_type="step_end", node_id=node_id)
-        )
+            instructions.append(Instruction(op=OpCode.VALIDATE_OUTPUT, node_id=node_id))
+        instructions.append(Instruction(op=OpCode.EMIT, event_type="step_end", node_id=node_id))
 
     def _compile_router_block(
         self,
-        router: "StageFunc",
+        router: StageFunc,
         routes: dict[str, Any],
         instructions: list[Instruction],
-        symbol_table: dict[str, "StageFunc"],
+        symbol_table: dict[str, StageFunc],
         writes_map: dict[str, frozenset[str]],
         reads_map: dict[str, frozenset[str]],
-        input_schemas: dict[str, type["BaseModel"]],
-        output_schemas: dict[str, type["BaseModel"]],
+        input_schemas: dict[str, type[BaseModel]],
+        output_schemas: dict[str, type[BaseModel]],
     ) -> None:
         self._compile_stage(
             router,
@@ -166,9 +156,7 @@ class Compiler:
         for route_name, body in routes.items():
             route_map_ips[route_name] = len(instructions)
             sub_nodes = self._unwrap_route_body(body)
-            normalized = (
-                self._auto_parallelize(sub_nodes) if self._auto_parallel else sub_nodes
-            )
+            normalized = self._auto_parallelize(sub_nodes) if self._auto_parallel else sub_nodes
             for sub in normalized:
                 if isinstance(sub, Parallel):
                     self._compile_parallel(
@@ -213,11 +201,11 @@ class Compiler:
         self,
         block: Parallel,
         instructions: list[Instruction],
-        symbol_table: dict[str, "StageFunc"],
+        symbol_table: dict[str, StageFunc],
         writes_map: dict[str, frozenset[str]],
         reads_map: dict[str, frozenset[str]],
-        input_schemas: dict[str, type["BaseModel"]],
-        output_schemas: dict[str, type["BaseModel"]],
+        input_schemas: dict[str, type[BaseModel]],
+        output_schemas: dict[str, type[BaseModel]],
     ) -> None:
         branch_ids: list[str] = []
         declared_writes: dict[str, frozenset[str]] = {}
@@ -328,16 +316,14 @@ class Compiler:
     def _register(
         node_id: str,
         fn: Any,
-        symbol_table: dict[str, "StageFunc"],
+        symbol_table: dict[str, StageFunc],
         writes_map: dict[str, frozenset[str]],
         reads_map: dict[str, frozenset[str]],
-        input_schemas: dict[str, type["BaseModel"]],
-        output_schemas: dict[str, type["BaseModel"]],
+        input_schemas: dict[str, type[BaseModel]],
+        output_schemas: dict[str, type[BaseModel]],
     ) -> None:
         if not hasattr(fn, "__fluxio_node_type__"):
-            raise CompilationError(
-                f"Object {fn!r} is not a @stage — missing __fluxio_node_type__"
-            )
+            raise CompilationError(f"Object {fn!r} is not a @stage — missing __fluxio_node_type__")
         if fn.__fluxio_node_type__ == NodeType.STREAM:
             pass
         symbol_table[node_id] = fn

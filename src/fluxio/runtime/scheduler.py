@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import os
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
+import logging
+import os
 from typing import TYPE_CHECKING
 
 from fluxio.api.primitives import ForkMode
@@ -27,20 +27,18 @@ class Scheduler:
 
     async def run_parallel(
         self,
-        branches: list[tuple[str, "StageFunc", "Context"]],
+        branches: list[tuple[str, StageFunc, Context]],
         mode: ForkMode,
         runner: BranchRun,
-    ) -> list["Context"]:
+    ) -> list[Context]:
         coros = [runner(fn, ctx, nid) for nid, fn, ctx in branches]
         if mode == ForkMode.PARALLEL:
             return list(await asyncio.gather(*coros, return_exceptions=False))
         results = await asyncio.gather(*coros, return_exceptions=True)
-        out: list["Context"] = []
+        out: list[Context] = []
         for (nid, _, ctx), res in zip(branches, results, strict=True):
             if isinstance(res, BaseException):
-                _logger.error(
-                    "fire-and-forget branch %s failed: %s", nid, res
-                )
+                _logger.error("fire-and-forget branch %s failed: %s", nid, res)
                 out.append(ctx)
             else:
                 out.append(res)

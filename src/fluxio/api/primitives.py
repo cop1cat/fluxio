@@ -29,7 +29,7 @@ class Send:
 
 @dataclass(frozen=True)
 class NodeResult:
-    ctx: "Context"
+    ctx: Context
     duration_ms: int
     node_id: str
 
@@ -40,7 +40,7 @@ class StageFunc(Protocol):
     __fluxio_node_type__: NodeType
     __fluxio_reads__: frozenset[str] | None
     __fluxio_writes__: frozenset[str] | None
-    __fluxio_input_schema__: "type[BaseModel] | None"
-    __fluxio_output_schema__: "type[BaseModel] | None"
+    __fluxio_input_schema__: type[BaseModel] | None
+    __fluxio_output_schema__: type[BaseModel] | None
 
-    async def __call__(self, ctx: "Context") -> "Context | Send": ...
+    async def __call__(self, ctx: Context) -> Context | Send: ...

@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
-from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from fluxio.api.primitives import NodeType
 
 if TYPE_CHECKING:
+    from concurrent.futures import ThreadPoolExecutor
+
     from fluxio.api.primitives import StageFunc
     from fluxio.context.context import Context
 
-_logger = logging.getLogger("fluxio.executor")
 
 StreamEmit = Callable[[str, Any], Awaitable[None]]
 
@@ -24,10 +23,10 @@ class Executor:
     async def run(
         self,
         node_id: str,
-        fn: "StageFunc",
-        ctx: "Context",
+        fn: StageFunc,
+        ctx: Context,
         emit_stream: StreamEmit | None = None,
-    ) -> "Context | Any":
+    ) -> Context | Any:
         node_type = getattr(fn, "__fluxio_node_type__", NodeType.ASYNC)
         if node_type == NodeType.ASYNC:
             return await fn(ctx)  # type: ignore[misc]
@@ -41,10 +40,10 @@ class Executor:
     async def _run_stream(
         self,
         node_id: str,
-        fn: "StageFunc",
-        ctx: "Context",
+        fn: StageFunc,
+        ctx: Context,
         emit_stream: StreamEmit | None,
-    ) -> "Context":
+    ) -> Context:
         accumulated: list[Any] = []
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=32)
         sentinel = object()
