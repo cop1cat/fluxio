@@ -7,15 +7,21 @@ def test_get_set_immutable():
     a = Context.create({"x": 1})
     b = a.set("y", 2)
     assert a.get("x") == 1
-    with pytest.raises(KeyError):
-        a.get("y")
+    assert a.get("y") is None
     assert b.get("y") == 2
     assert b.get("x") == 1
 
 
-def test_get_default():
+def test_strict_getitem_raises():
+    c = Context.create({"x": 1})
+    assert c["x"] == 1
+    with pytest.raises(KeyError):
+        c["missing"]
+
+
+def test_get_custom_default():
     c = Context.create()
-    assert c.get("missing", None) is None
+    assert c.get("missing", 42) == 42
 
 
 def test_fork_shares_data_resets_written():

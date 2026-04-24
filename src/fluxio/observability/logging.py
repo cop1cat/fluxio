@@ -39,6 +39,9 @@ class LoggingCallback(BaseCallback):
     async def on_branch(self, run_id: str, branches: list[str]) -> None:
         _logger.debug("branch run_id=%s branches=%s", run_id, branches)
 
+    async def on_route(self, run_id: str, step: str, route: str) -> None:
+        _logger.debug("route run_id=%s step=%s route=%s", run_id, step, route)
+
     async def on_error(self, run_id: str, step: str, error: Exception) -> None:
         _logger.error(
             "error run_id=%s step=%s: %r",

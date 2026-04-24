@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any
@@ -37,27 +38,32 @@ class Interpreter:
         callbacks: list[BaseCallback],
         store: CheckpointStore | None = None,
         durable: bool = False,
-        force_restart: bool = False,
+        resume: bool = False,
     ) -> Context:
         start_ip = 0
 
-        if durable and store is not None and not force_restart:
+        if resume:
+            if store is None:
+                raise RuntimeError("resume=True requires a checkpoint_store")
             existing = await store.load(run_id)
-            if existing is not None:
-                if existing.pipeline_version != compiled.version:
-                    raise CheckpointVersionError(
-                        f"Checkpoint pipeline_version={existing.pipeline_version} "
-                        f"differs from current version={compiled.version}. "
-                        "Pass force_restart=True to ignore."
-                    )
-                ctx = Context.from_snapshot(existing.ctx_snapshot, name=ctx.name)
-                start_ip = existing.ip
-                _logger.info("Resuming run_id=%s from ip=%d", run_id, start_ip)
+            if existing is None:
+                raise KeyError(f"No checkpoint to resume for run_id={run_id!r}")
+            if existing.pipeline_version != compiled.version:
+                raise CheckpointVersionError(
+                    f"Checkpoint pipeline_version={existing.pipeline_version} "
+                    f"differs from current version={compiled.version}."
+                )
+            ctx = Context.from_snapshot(existing.ctx_snapshot, name=ctx.name)
+            start_ip = existing.ip
+            _logger.info("Resuming run_id=%s from ip=%d", run_id, start_ip)
+        elif durable and store is not None:
+            await store.delete(run_id)
 
         step_timers: dict[str, float] = {}
         instructions = compiled.instructions
         ip = start_ip
         pending_route: str | None = None
+        pending_route_step: str | None = None
         try:
             while ip < len(instructions):
                 instr = instructions[ip]
@@ -88,6 +94,7 @@ class Interpreter:
                     if isinstance(result, Send):
                         ctx = ctx.update(result.patch)
                         pending_route = result.route
+                        pending_route_step = instr.node_id
                     else:
                         ctx = result
                 elif op == OpCode.FORK:
@@ -100,8 +107,11 @@ class Interpreter:
                 elif op == OpCode.ROUTE:
                     if pending_route is None:
                         raise RuntimeError("ROUTE instruction reached without a preceding Send")
+                    for cb in callbacks:
+                        await cb.on_route(run_id, pending_route_step or "?", pending_route)
                     ip = self._resolve_route_map(instr, pending_route)
                     pending_route = None
+                    pending_route_step = None
                     continue
                 elif op == OpCode.JUMP:
                     if instr.target_ip is None:
@@ -190,6 +200,10 @@ class Interpreter:
         async def terminal(f: StageFunc, c: Context) -> Any:
             return await self._scheduler.executor.run(node_id, f, c, emit_stream)
 
+        timeout = getattr(fn, "__fluxio_timeout__", None)
+        if timeout is not None:
+            async with asyncio.timeout(timeout):
+                return await self._chain.run(fn, ctx, terminal)
         return await self._chain.run(fn, ctx, terminal)  # type: ignore[return-value]
 
     async def _handle_fork(

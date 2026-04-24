@@ -8,8 +8,6 @@ from pyrsistent import pmap
 if TYPE_CHECKING:
     from pyrsistent import PMap
 
-_MISSING: Any = object()
-
 
 class MergeConflictError(Exception):
     def __init__(self, conflicting_keys: list[str], branch_names: list[str]) -> None:
@@ -34,12 +32,13 @@ class Context:
         data = pmap(initial) if initial else pmap()
         return Context(_data=data, _written=frozenset(), name=name)
 
-    def get(self, key: str, default: Any = _MISSING) -> Any:
-        if key in self._data:
-            return self._data[key]
-        if default is _MISSING:
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        if key not in self._data:
             raise KeyError(key)
-        return default
+        return self._data[key]
 
     def __contains__(self, key: str) -> bool:
         return key in self._data

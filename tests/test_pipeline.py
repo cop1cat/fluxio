@@ -47,14 +47,39 @@ async def test_durable_resume():
         return ctx.set("done", True)
 
     store = InMemoryStore()
-    pipe = Pipeline([counter], checkpoint_store=store, durable=True, auto_parallel=False)
+    async with Pipeline(
+        [counter], checkpoint_store=store, durable=True, auto_parallel=False
+    ) as pipe:
+        with pytest.raises(RuntimeError):
+            await pipe.invoke({}, run_id="r1")
 
-    with pytest.raises(RuntimeError):
-        await pipe.invoke({}, run_id="r1")
+        result = await pipe.invoke({}, run_id="r1", resume=True)
+        assert result.get("done") is True
 
-    result = await pipe.invoke({}, run_id="r1")
-    assert result.get("done") is True
-    pipe.shutdown()
+
+async def test_invoke_without_resume_starts_fresh():
+    @stage
+    async def succeed(ctx):
+        return ctx.set("x", 1)
+
+    store = InMemoryStore()
+    async with Pipeline(
+        [succeed], checkpoint_store=store, durable=True, auto_parallel=False
+    ) as pipe:
+        await pipe.invoke({}, run_id="r2")
+        result = await pipe.invoke({"x": 99}, run_id="r2")
+        assert result.get("x") == 1
+
+
+async def test_resume_without_checkpoint_raises():
+    @stage
+    async def noop(ctx):
+        return ctx
+
+    store = InMemoryStore()
+    async with Pipeline([noop], checkpoint_store=store, durable=True, auto_parallel=False) as pipe:
+        with pytest.raises(KeyError):
+            await pipe.invoke({}, run_id="missing", resume=True)
 
 
 async def test_run_step_isolated():

@@ -42,5 +42,6 @@ class StageFunc(Protocol):
     __fluxio_writes__: frozenset[str] | None
     __fluxio_input_schema__: type[BaseModel] | None
     __fluxio_output_schema__: type[BaseModel] | None
+    __fluxio_timeout__: float | None
 
     async def __call__(self, ctx: Context) -> Context | Send: ...

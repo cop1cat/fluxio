@@ -60,7 +60,7 @@ class Pipeline:
         initial_ctx: dict[str, Any] | Context,
         *,
         run_id: str | None = None,
-        force_restart: bool = False,
+        resume: bool = False,
     ) -> Context:
         ctx = self._coerce_ctx(initial_ctx)
         rid = run_id or uuid.uuid4().hex
@@ -71,7 +71,7 @@ class Pipeline:
             self._callbacks,
             store=self._store,
             durable=self._durable,
-            force_restart=force_restart,
+            resume=resume,
         )
 
     async def stream(
@@ -87,7 +87,7 @@ class Pipeline:
 
         class _StreamCollector(BaseCallback):
             async def on_step_stream(self, rid_: str, step: str, chunk: Any) -> None:
-                await queue.put((step, chunk))
+                await queue.put(chunk)
 
         collector = _StreamCollector()
         original = list(self._callbacks)
@@ -159,7 +159,7 @@ class Pipeline:
             self._callbacks,
             store=self._store,
             durable=True,
-            force_restart=False,
+            resume=True,
         )
 
     async def diff(self, run_id_a: str, run_id_b: str) -> dict[str, Any]:
@@ -194,6 +194,12 @@ class Pipeline:
 
     def shutdown(self) -> None:
         self._scheduler.shutdown()
+
+    async def __aenter__(self) -> Pipeline:
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        self.shutdown()
 
     @staticmethod
     def _describe(fn: Any) -> str:

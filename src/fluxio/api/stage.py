@@ -25,6 +25,7 @@ def stage(
     writes: frozenset[str] | None = None,
     input_schema: type[BaseModel] | None = None,
     output_schema: type[BaseModel] | None = None,
+    timeout: float | None = None,
 ) -> Callable[[Callable[..., Any]], StageFunc]: ...
 
 
@@ -36,6 +37,7 @@ def stage(
     writes: frozenset[str] | None = None,
     input_schema: type[BaseModel] | None = None,
     output_schema: type[BaseModel] | None = None,
+    timeout: float | None = None,
 ) -> Any:
     def decorate(func: Callable[..., Any]) -> StageFunc:
         resolved = node_type
@@ -60,6 +62,7 @@ def stage(
         wrapped.__fluxio_writes__ = writes  # type: ignore[attr-defined]
         wrapped.__fluxio_input_schema__ = input_schema  # type: ignore[attr-defined]
         wrapped.__fluxio_output_schema__ = output_schema  # type: ignore[attr-defined]
+        wrapped.__fluxio_timeout__ = timeout  # type: ignore[attr-defined]
         return wrapped  # type: ignore[return-value]
 
     if fn is not None:
