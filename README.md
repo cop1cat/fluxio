@@ -2,6 +2,8 @@
 
 Streamable, durable pipeline runtime for Python backend services.
 
+📖 **Documentation:** [English](https://example.github.io/fluxio/) · [Русский](https://example.github.io/fluxio/ru/)
+
 - **Composable stages** with auto-detected sync/async/stream types
 - **Immutable HAMT context** with O(1) fork / conflict-aware merge
 - **Auto-parallelism** from declared `reads`/`writes`

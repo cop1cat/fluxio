@@ -48,10 +48,15 @@ def stage(
     * plain ``def`` → ``SYNC`` (runs in the pipeline thread pool)
 
     Args:
-        reads / writes: Declared context keys the stage reads/writes. Enables
-            auto-parallelism and write-conflict detection at compile time.
-        input_schema / output_schema: Pydantic models validated against the
-            context before / after the stage runs. Extra fields are ignored.
+        node_type: Override the auto-detected node type.
+        reads: Declared context keys the stage reads.
+        writes: Declared context keys the stage writes. Combined with ``reads``
+            this enables auto-parallelism and write-conflict detection at
+            compile time.
+        input_schema: Pydantic model validated against the context before the
+            stage runs. Extra fields are ignored.
+        output_schema: Pydantic model validated against the context after the
+            stage runs. Extra fields are ignored.
         timeout: Per-stage timeout in seconds, enforced via ``asyncio.timeout``.
 
     Usage::
