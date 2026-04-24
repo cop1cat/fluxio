@@ -1,11 +1,30 @@
 [project]
 name = "fluxio"
 version = "0.1.0"
+description = "Streamable, durable pipeline runtime for Python backend services."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyrsistent>=0.20",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=5.0"]
+langfuse = ["langfuse>=3.0"]
+all = ["fluxio[redis,langfuse]"]
 
 [dependency-groups]
 dev = [
     "ruff>=0.15.12",
     "ty>=0.0.32",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "anyio",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fluxio"]
