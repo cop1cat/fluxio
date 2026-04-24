@@ -93,6 +93,55 @@ async with Pipeline(
     result = await pipe.invoke({}, run_id="req-abc-123", resume=True)
 ```
 
+### How the pipeline above executes
+
+```mermaid
+flowchart TD
+    Input["invoke({user_id: 42})"] --> FetchUser["fetch_user<br/>reads: user_id<br/>writes: user<br/>timeout=5s"]
+    FetchUser -->|checkpoint| Fork(("fork"))
+    Fork --> Enrich["enrich_profile<br/>writes: profile"]
+    Fork --> Orders["fetch_orders<br/>writes: orders"]
+    Enrich --> Join(("merge"))
+    Orders --> Join
+    Join --> Route["route<br/>returns Send"]
+    Route -->|Send premium| Premium["stream_response<br/>async for chunk → yield"]
+    Route -->|Send standard| Standard["stream_response<br/>async for chunk → yield"]
+    Premium --> End["final ctx"]
+    Standard --> End
+
+    subgraph Middleware["middleware chain (per stage, outermost → innermost)"]
+        direction LR
+        CB[CircuitBreaker] --> Retry[Retry 3x exp] --> Cache[Cache TTL=60s]
+    end
+
+    subgraph Observability["side channels"]
+        direction LR
+        Store[(InMemoryStore<br/>checkpoints)]
+        Logger[LoggingCallback]
+    end
+
+    FetchUser -.-> Store
+    FetchUser -.-> Logger
+    Route -.-> Logger
+    Premium -.-> Logger
+    Standard -.-> Logger
+
+    classDef stage fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    classDef stream fill:#fff3e0,stroke:#f57c00,color:#e65100
+    classDef junction fill:#eeeeee,stroke:#424242,color:#212121
+    classDef side fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    class FetchUser,Enrich,Orders,Route stage
+    class Premium,Standard stream
+    class Fork,Join junction
+    class Store,Logger,CB,Retry,Cache side
+```
+
+- Solid arrows = data flow between stages (each step passes a new immutable `Context`).
+- Dotted arrows = side channels: checkpoints and callbacks, invisible to stage logic.
+- The `fork / merge` pair is an implicit `Parallel` block — branches run concurrently and their writes are merged back (with conflict detection).
+- `Send("premium")` from `route` drives the `dict` branch selection; only one route body runs per invocation.
+- `STREAM` stages (orange) bypass `RetryMiddleware` and `CacheMiddleware` automatically so chunks aren't duplicated or frozen in cache.
+
 ## Streaming
 
 ```python
