@@ -7,6 +7,12 @@ if TYPE_CHECKING:
 
 
 class BaseCallback:
+    """Hook interface for pipeline observability.
+
+    Subclass and override the events you care about; all hooks default to no-op.
+    Attach via ``Pipeline(callbacks=[MyCallback()])``.
+    """
+
     async def on_pipeline_start(self, run_id: str, ctx: Context) -> None: ...
 
     async def on_pipeline_end(self, run_id: str, ctx: Context, duration_ms: int) -> None: ...

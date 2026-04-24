@@ -4,10 +4,10 @@ from fluxio import (
     CacheMiddleware,
     CircuitBreakerMiddleware,
     CircuitOpenError,
-    InMemoryStore,
     RetryMiddleware,
     stage,
 )
+from fluxio.runtime.cache import InMemoryCache
 from fluxio.testing.harness import StepHarness
 
 
@@ -47,7 +47,7 @@ async def test_cache_hits_skip_call():
         calls["n"] += 1
         return ctx.set("result", ctx.get("x") * 2)
 
-    store = InMemoryStore()
+    store = InMemoryCache()
     h = StepHarness(expensive, middleware=[CacheMiddleware(store=store, ttl=60)])
     r1 = await h.run({"x": 5})
     r2 = await h.run({"x": 5})

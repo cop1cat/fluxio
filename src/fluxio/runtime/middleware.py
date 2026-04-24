@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from fluxio.api.primitives import StageFunc
     from fluxio.context.context import Context
-    from fluxio.store.base import CheckpointStore
+    from fluxio.runtime.cache import CacheStore
 
 _logger = logging.getLogger("fluxio.middleware")
 
@@ -55,6 +55,12 @@ class MiddlewareChain:
 
 
 class RetryMiddleware(Middleware):
+    """Retries the stage up to ``max_attempts`` times on matching exceptions.
+
+    Not safe to use with STREAM stages: partial chunks emitted on the first
+    attempt are already delivered to callbacks / consumers.
+    """
+
     def __init__(
         self,
         max_attempts: int = 3,
@@ -96,38 +102,36 @@ class RetryMiddleware(Middleware):
 
 
 class CacheMiddleware(Middleware):
+    """Memoizes stage output in a ``CacheStore`` keyed by stage name + ctx hash.
+
+    Defaults to an in-process ``InMemoryCache``. Not safe for STREAM stages.
+    """
+
     def __init__(
         self,
-        store: CheckpointStore,
+        store: CacheStore | None = None,
         ttl: int = 300,
         key_fn: Callable[[StageFunc, Context], str] | None = None,
     ) -> None:
-        self.store = store
+        from fluxio.runtime.cache import InMemoryCache
+
+        self.store: CacheStore = store or InMemoryCache()
         self.ttl = ttl
         self.key_fn = key_fn
 
     async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
         from fluxio.context.context import Context as _Ctx
-        from fluxio.store.base import Checkpoint
+        from fluxio.runtime.cache import CacheEntry
 
         key = self._build_key(fn, ctx)
-        existing = await self.store.load(key)
+        existing = await self.store.get(key)
         now = time.time()
-        if existing and not existing.error and (now - existing.created_at) < self.ttl:
+        if existing and (now - existing.created_at) < self.ttl:
             _logger.debug("cache hit stage=%s", getattr(fn, "__name__", "?"))
-            return _Ctx.from_snapshot(existing.ctx_snapshot, name=ctx.name)
+            return _Ctx.from_snapshot(existing.value, name=ctx.name)
 
         result = await next(fn, ctx)
-        snap = result.snapshot()
-        await self.store.save(
-            Checkpoint(
-                run_id=key,
-                pipeline_version="cache",
-                ip=0,
-                ctx_snapshot=snap,
-                created_at=now,
-            )
-        )
+        await self.store.set(key, CacheEntry(value=result.snapshot(), created_at=now))
         return result
 
     def _build_key(self, fn: StageFunc, ctx: Context) -> str:
@@ -147,6 +151,12 @@ class CircuitOpenError(Exception):
 
 
 class CircuitBreakerMiddleware(Middleware):
+    """Opens the circuit after ``failure_threshold`` consecutive failures.
+
+    In the OPEN state ``CircuitOpenError`` is raised immediately without
+    calling the stage, until ``recovery_timeout`` elapses.
+    """
+
     def __init__(
         self,
         failure_threshold: int = 5,
@@ -186,6 +196,8 @@ class CircuitBreakerMiddleware(Middleware):
 
 
 class RateLimitMiddleware(Middleware):
+    """Token-bucket style sliding-window rate limit. Waits, never raises."""
+
     def __init__(self, rps: float) -> None:
         if rps <= 0:
             raise ValueError("rps must be positive")

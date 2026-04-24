@@ -28,6 +28,20 @@ PipelineNode = "StageFunc | Parallel | dict[str, Any]"
 
 
 class Pipeline:
+    """Compiled, executable sequence of stages.
+
+    Nodes are stages decorated with ``@stage``, ``Parallel(...)`` blocks, or
+    ``dict[str, ...]`` routing blocks (following a stage that returns ``Send``).
+
+    The pipeline is compiled once on construction. Use ``async with Pipeline(...)``
+    to ensure the thread pool shuts down cleanly.
+
+    Example::
+
+        async with Pipeline([fetch_user, send_email]) as pipe:
+            result = await pipe.invoke({"user_id": 42})
+    """
+
     def __init__(
         self,
         nodes: list[StageFunc | Parallel | dict[str, Any]],
@@ -36,7 +50,6 @@ class Pipeline:
         callbacks: list[BaseCallback] | None = None,
         checkpoint_store: CheckpointStore | None = None,
         durable: bool = False,
-        dev: bool = False,
         max_workers: int | None = None,
         auto_parallel: bool = True,
     ) -> None:
@@ -45,7 +58,6 @@ class Pipeline:
         self._callbacks = list(callbacks or [])
         self._store = checkpoint_store or (InMemoryStore() if durable else None)
         self._durable = durable
-        self._dev = dev
         self._compiled = Compiler(auto_parallel=auto_parallel).compile(self._nodes)
         self._scheduler = Scheduler(max_workers=max_workers)
         self._chain = MiddlewareChain(self._middleware)
@@ -62,6 +74,17 @@ class Pipeline:
         run_id: str | None = None,
         resume: bool = False,
     ) -> Context:
+        """Run the pipeline to completion and return the final context.
+
+        Args:
+            initial_ctx: Initial values as a dict or a ``Context`` instance.
+            run_id: Identifier for this run. Auto-generated if not provided.
+                With ``durable=True`` + ``resume=True``, must match an existing
+                checkpoint.
+            resume: If True, load checkpoint for ``run_id`` and continue.
+                Raises ``KeyError`` if no checkpoint exists. Requires
+                ``durable=True`` and a ``checkpoint_store``.
+        """
         ctx = self._coerce_ctx(initial_ctx)
         rid = run_id or uuid.uuid4().hex
         return await self._interpreter.run(
@@ -80,6 +103,11 @@ class Pipeline:
         *,
         run_id: str | None = None,
     ) -> AsyncGenerator[Any, None]:
+        """Run the pipeline and yield chunks from STREAM stages as they arrive.
+
+        Chunks from multiple STREAM stages are yielded in the order produced.
+        Use an ``on_step_stream`` callback if you need to tag chunks by stage.
+        """
         from fluxio.observability.base import BaseCallback
 
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=32)
@@ -89,26 +117,30 @@ class Pipeline:
             async def on_step_stream(self, rid_: str, step: str, chunk: Any) -> None:
                 await queue.put(chunk)
 
-        collector = _StreamCollector()
-        original = list(self._callbacks)
-        self._callbacks.append(collector)
+        callbacks = [*self._callbacks, _StreamCollector()]
+        ctx = self._coerce_ctx(initial_ctx)
+        rid = run_id or uuid.uuid4().hex
 
         async def driver() -> None:
             try:
-                await self.invoke(initial_ctx, run_id=run_id)
+                await self._interpreter.run(
+                    self._compiled,
+                    ctx,
+                    rid,
+                    callbacks,
+                    store=self._store,
+                    durable=self._durable,
+                )
             finally:
                 await queue.put(sentinel)
 
         task = asyncio.create_task(driver())
-        try:
-            while True:
-                item = await queue.get()
-                if item is sentinel:
-                    break
-                yield item
-            await task
-        finally:
-            self._callbacks[:] = original
+        while True:
+            item = await queue.get()
+            if item is sentinel:
+                break
+            yield item
+        await task
 
     async def run_step(
         self,
@@ -188,9 +220,23 @@ class Pipeline:
                 lines.append(f"  ⇉ parallel ({node.mode.value})")
                 for br in node.branches:
                     lines.append(f"     └─ {self._describe(br)}")
+            elif isinstance(node, dict):
+                lines.append("  ⌥ routes:")
+                for route_name, body in node.items():
+                    lines.append(f"     ├─ {route_name}:")
+                    for sub in self._route_items(body):
+                        lines.append(f"     │   → {self._describe(sub)}")
             else:
                 lines.append(f"  → {self._describe(node)}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _route_items(body: Any) -> list[Any]:
+        if hasattr(body, "_nodes"):
+            return list(body._nodes)
+        if isinstance(body, list):
+            return body
+        return [body]
 
     def shutdown(self) -> None:
         self._scheduler.shutdown()

@@ -84,9 +84,9 @@ class Interpreter:
                         for cb in callbacks:
                             await cb.on_checkpoint(run_id, instr.node_id or "?", ip)
                 elif op == OpCode.VALIDATE_INPUT:
-                    self._validate(instr, ctx, compiled, input=True)
+                    self._validate(instr, ctx, compiled, is_input=True)
                 elif op == OpCode.VALIDATE_OUTPUT:
-                    self._validate(instr, ctx, compiled, input=False)
+                    self._validate(instr, ctx, compiled, is_input=False)
                 elif op == OpCode.CALL:
                     assert instr.node_id is not None
                     fn = compiled.symbol_table[instr.node_id]
@@ -168,12 +168,13 @@ class Interpreter:
         instr: Instruction,
         ctx: Context,
         compiled: CompiledPipeline,
-        input: bool,
+        *,
+        is_input: bool,
     ) -> None:
         assert instr.node_id is not None
         schema = (
             compiled.input_schemas.get(instr.node_id)
-            if input
+            if is_input
             else compiled.output_schemas.get(instr.node_id)
         )
         if schema is None:
@@ -181,9 +182,8 @@ class Interpreter:
         try:
             schema.model_validate(ctx.snapshot())
         except Exception as e:
-            raise RuntimeError(
-                f"{'Input' if input else 'Output'} validation failed for {instr.node_id!r}: {e}"
-            ) from e
+            kind = "Input" if is_input else "Output"
+            raise RuntimeError(f"{kind} validation failed for {instr.node_id!r}: {e}") from e
 
     async def _call(
         self,

@@ -39,6 +39,32 @@ def stage(
     output_schema: type[BaseModel] | None = None,
     timeout: float | None = None,
 ) -> Any:
+    """Mark a function as a pipeline stage.
+
+    The stage type is auto-detected from the signature:
+
+    * ``async def`` → ``ASYNC``
+    * ``async def`` generator (``yield`` inside) → ``STREAM``
+    * plain ``def`` → ``SYNC`` (runs in the pipeline thread pool)
+
+    Args:
+        reads / writes: Declared context keys the stage reads/writes. Enables
+            auto-parallelism and write-conflict detection at compile time.
+        input_schema / output_schema: Pydantic models validated against the
+            context before / after the stage runs. Extra fields are ignored.
+        timeout: Per-stage timeout in seconds, enforced via ``asyncio.timeout``.
+
+    Usage::
+
+        @stage
+        async def fetch_user(ctx):
+            return ctx.set("user", await db.get(ctx["user_id"]))
+
+
+        @stage(reads=frozenset({"user"}), writes=frozenset({"profile"}))
+        async def enrich(ctx): ...
+    """
+
     def decorate(func: Callable[..., Any]) -> StageFunc:
         resolved = node_type
         if resolved == NodeType.ASYNC:

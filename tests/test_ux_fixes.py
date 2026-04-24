@@ -73,3 +73,19 @@ async def test_stream_yields_chunks_only():
     async with Pipeline([producer], auto_parallel=False) as pipe:
         got = [c async for c in pipe.stream({})]
     assert got == [0, 1, 2]
+
+
+async def test_concurrent_streams_do_not_mix():
+    @stage
+    async def producer(ctx):
+        for i in range(ctx["n"]):
+            yield i
+
+    async with Pipeline([producer], auto_parallel=False) as pipe:
+
+        async def collect(n: int) -> list[int]:
+            return [c async for c in pipe.stream({"n": n})]
+
+        a, b = await asyncio.gather(collect(3), collect(5))
+    assert a == [0, 1, 2]
+    assert b == [0, 1, 2, 3, 4]

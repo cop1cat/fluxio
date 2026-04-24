@@ -20,6 +20,20 @@ class MergeConflictError(Exception):
 
 @dataclass(frozen=True)
 class Context:
+    """Immutable, copy-on-write state passed between stages.
+
+    Backed by a HAMT (``pyrsistent.PMap``) — ``set()`` returns a new Context
+    with structural sharing, so forks are O(1). Writes are tracked per fork
+    and reconciled at merge time; two branches writing the same key raise
+    ``MergeConflictError``.
+
+    Access:
+
+    * ``ctx.get(key)`` — permissive (returns ``None`` if missing).
+    * ``ctx[key]`` — strict (raises ``KeyError``).
+    * ``ctx.set(k, v)`` — returns a new Context.
+    """
+
     _data: PMap = field(default_factory=pmap)
     _written: frozenset[str] = field(default_factory=frozenset)
     name: str = "root"

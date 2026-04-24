@@ -6,6 +6,7 @@ from fluxio.compiler.compiler import CompilationError
 from fluxio.context.context import Context, MergeConflictError
 from fluxio.observability.base import BaseCallback
 from fluxio.observability.logging import LoggingCallback
+from fluxio.runtime.cache import CacheStore, InMemoryCache
 from fluxio.runtime.middleware import (
     CacheMiddleware,
     CircuitBreakerMiddleware,
@@ -19,11 +20,13 @@ from fluxio.store.memory import InMemoryStore
 __all__ = [
     "BaseCallback",
     "CacheMiddleware",
+    "CacheStore",
     "CircuitBreakerMiddleware",
     "CircuitOpenError",
     "CompilationError",
     "Context",
     "ForkMode",
+    "InMemoryCache",
     "InMemoryStore",
     "LoggingCallback",
     "MergeConflictError",
