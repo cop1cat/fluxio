@@ -1,26 +1,26 @@
 # Observability
 
-Callbacks получают события от интерпретатора — используйте их для логирования, метрик, трассировки.
+Callback'и получают события от интерпретатора по ходу выполнения пайплайна — через них удобно подключать логирование, метрики и трассировку.
 
 ## События
 
-Реализуйте любое подмножество `BaseCallback`; дефолты — no-op.
+Реализуйте те методы `BaseCallback`, которые вам нужны — все остальные по умолчанию ничего не делают.
 
-| Событие              | Когда                                                           |
+| Событие              | Когда срабатывает                                                |
 |----------------------|------------------------------------------------------------------|
-| `on_pipeline_start`  | перед первым стейджем                                            |
-| `on_pipeline_end`    | после последнего стейджа                                         |
+| `on_pipeline_start`  | перед самым первым стейджем                                      |
+| `on_pipeline_end`    | после самого последнего стейджа                                  |
 | `on_step_start`      | перед каждым стейджем                                            |
 | `on_step_end`        | после каждого стейджа (с `duration_ms`)                          |
-| `on_step_stream`     | каждый чанк из STREAM-стейджа                                    |
-| `on_branch`          | когда стартует `Parallel`-блок (id веток)                        |
-| `on_route`           | когда роутер отрезолвил `Send` (стейдж + выбранный маршрут)      |
-| `on_error`           | любое исключение внутри стейджа                                  |
+| `on_step_stream`     | на каждый чанк из STREAM-стейджа                                 |
+| `on_branch`          | при старте `Parallel`-блока (с id веток)                         |
+| `on_route`           | когда роутер выбрал ветку (стейдж + имя маршрута)                |
+| `on_error`           | при любом исключении внутри стейджа                              |
 | `on_checkpoint`      | после записи durable-чекпоинта                                   |
 
 ## `LoggingCallback`
 
-Готовый callback через стандартный logger:
+Готовый callback, пишущий через стандартный `logging`:
 
 ```python
 from fluxio import LoggingCallback
@@ -28,11 +28,11 @@ from fluxio import LoggingCallback
 Pipeline([...], callbacks=[LoggingCallback()])
 ```
 
-Пишет события под logger'ом `fluxio`. `pipeline_start/end` — `INFO`, всё остальное — `DEBUG`.
+Все события идут в logger с именем `fluxio`. `pipeline_start` и `pipeline_end` пишутся на уровне `INFO`, остальные — на `DEBUG`.
 
 ## `LangfuseCallback`
 
-Требует `pip install fluxio[langfuse]`. Создаёт root-span на прогон и child-spans на каждый стейдж через Langfuse SDK v3.
+Создаёт root-span на весь прогон и child-span на каждый стейдж через Langfuse SDK v3:
 
 ```python
 from fluxio.observability.langfuse import LangfuseCallback
@@ -44,6 +44,8 @@ cb = LangfuseCallback(
 )
 Pipeline([...], callbacks=[cb])
 ```
+
+Требует `pip install fluxio[langfuse]`.
 
 ## Свой callback
 
@@ -58,4 +60,4 @@ class PromCallback(BaseCallback):
         STAGE_ERRORS.labels(step=step, kind=type(error).__name__).inc()
 ```
 
-Callbacks работают в цикле интерпретатора — не блокируйте их. Тяжёлую работу выносите в очередь.
+Важный момент: callback'и выполняются прямо в цикле интерпретатора. Тяжёлые операции (запись в БД, отправка по сети) лучше класть в очередь и обрабатывать отдельным воркером — иначе медленный callback будет тормозить весь пайплайн.
