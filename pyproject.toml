@@ -6,10 +6,42 @@ readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "cop1cat" }]
 requires-python = ">=3.12"
+keywords = [
+    "pipeline",
+    "workflow",
+    "async",
+    "asyncio",
+    "durable",
+    "checkpoint",
+    "streaming",
+    "llm",
+    "orchestration",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+]
 dependencies = [
     "pyrsistent>=0.20",
     "pydantic>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cop1cat/fluxio"
+Documentation = "https://cop1cat.github.io/fluxio/"
+Repository = "https://github.com/cop1cat/fluxio"
+Issues = "https://github.com/cop1cat/fluxio/issues"
+Changelog = "https://github.com/cop1cat/fluxio/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 redis = ["redis>=5.0"]
