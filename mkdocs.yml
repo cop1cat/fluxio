@@ -1,0 +1,122 @@
+site_name: fluxio
+site_description: Streamable, durable pipeline runtime for Python backend services.
+site_url: https://cop1cat.github.io/fluxio/
+repo_url: https://github.com/cop1cat/fluxio
+repo_name: fluxio
+docs_dir: docs
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+  - i18n:
+      docs_structure: folder
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+          nav:
+            - Home: index.md
+            - Getting started:
+                - Installation: getting-started/installation.md
+                - Quickstart: getting-started/quickstart.md
+            - Concepts:
+                - Stage: concepts/stage.md
+                - Context: concepts/context.md
+                - Pipeline: concepts/pipeline.md
+            - Guides:
+                - Parallel execution: guides/parallel.md
+                - Conditional routing: guides/routing.md
+                - Streaming: guides/streaming.md
+                - Durable execution: guides/durable.md
+                - Middleware: guides/middleware.md
+                - Observability: guides/observability.md
+                - Testing: guides/testing.md
+            - Reference:
+                - API: reference/api.md
+        - locale: ru
+          name: Русский
+          build: true
+          nav:
+            - Главная: index.md
+            - Начало работы:
+                - Установка: getting-started/installation.md
+                - Быстрый старт: getting-started/quickstart.md
+            - Концепции:
+                - Стейдж: concepts/stage.md
+                - Контекст: concepts/context.md
+                - Пайплайн: concepts/pipeline.md
+            - Руководства:
+                - Параллельное выполнение: guides/parallel.md
+                - Условный роутинг: guides/routing.md
+                - Стриминг: guides/streaming.md
+                - Durable execution: guides/durable.md
+                - Middleware: guides/middleware.md
+                - Observability: guides/observability.md
+                - Тестирование: guides/testing.md
+            - Справочник:
+                - API: reference/api.md
