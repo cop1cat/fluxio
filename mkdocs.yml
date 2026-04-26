@@ -39,6 +39,11 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+extra:
+  version:
+    provider: mike
+    default: latest
+
 markdown_extensions:
   - admonition
   - attr_list
