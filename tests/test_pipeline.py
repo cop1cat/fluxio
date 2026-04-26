@@ -95,3 +95,28 @@ async def test_explain_includes_version():
     assert "Pipeline" in text
     assert "fetch" in text
     pipe.shutdown()
+
+
+async def test_parallel_branch_runs_input_schema():
+    """Regression: input_schema declared on a stage must validate even when stage runs as a Parallel branch."""
+    from pydantic import BaseModel
+    import pytest
+
+    from fluxio import Parallel, Pipeline, stage
+
+    class NeedsX(BaseModel):
+        x: int
+
+    @stage(input_schema=NeedsX)
+    async def needs_x(ctx):
+        return ctx.set("x_seen", ctx["x"])
+
+    @stage
+    async def other(ctx):
+        return ctx.set("y", 1)
+
+    pipe = Pipeline([Parallel([needs_x, other])], auto_parallel=False)
+    # x missing → branch input validation must fail
+    with pytest.raises(RuntimeError, match="Input validation failed"):
+        await pipe.invoke({})
+    pipe.shutdown()

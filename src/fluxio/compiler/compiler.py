@@ -158,6 +158,11 @@ class Compiler:
         for route_name, body in routes.items():
             route_map_ips[route_name] = len(instructions)
             sub_nodes = self._unwrap_route_body(body)
+            if not sub_nodes:
+                raise CompilationError(
+                    f"Route {route_name!r} has an empty body — "
+                    f"a route must contain at least one stage"
+                )
             normalized = self._auto_parallelize(sub_nodes) if self._auto_parallel else sub_nodes
             for sub in normalized:
                 if isinstance(sub, Parallel):
@@ -314,15 +319,24 @@ class Compiler:
 
     @staticmethod
     def _node_id(fn: Any, symbol_table: dict[str, Any]) -> str:
-        base = getattr(fn, "__name__", None) or repr(fn)
-        if base not in symbol_table:
-            return base
-        if symbol_table[base] is fn:
-            return base
+        # Use __name__ for the clean public id. On collision, prefer
+        # __qualname__ (which disambiguates closures across scopes) before
+        # falling back to a numeric "#N" suffix. The "#N" path remains
+        # registration-order dependent — a known limitation when two
+        # distinct functions share both __name__ and __qualname__ in one
+        # pipeline.
+        name = getattr(fn, "__name__", None) or repr(fn)
+        if name not in symbol_table:
+            return name
+        if symbol_table[name] is fn:
+            return name
+        qualname = getattr(fn, "__qualname__", None)
+        if qualname and qualname != name and qualname not in symbol_table:
+            return qualname
         n = 2
-        while f"{base}#{n}" in symbol_table:
+        while f"{name}#{n}" in symbol_table:
             n += 1
-        return f"{base}#{n}"
+        return f"{name}#{n}"
 
     @staticmethod
     def _register(

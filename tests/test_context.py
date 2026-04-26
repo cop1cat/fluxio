@@ -56,3 +56,24 @@ def test_snapshot_roundtrip():
     restored = Context.from_snapshot(snap)
     assert restored.get("a") == 1
     assert restored.get("b") == [1, 2]
+
+
+def test_snapshot_is_deep_copy():
+    """Mutating a value returned by snapshot() must not corrupt the live Context."""
+    original = Context.create({"items": [1, 2], "config": {"key": "v"}})
+    snap = original.snapshot()
+    snap["items"].append(99)
+    snap["config"]["key"] = "tampered"
+    assert original["items"] == [1, 2]
+    assert original["config"] == {"key": "v"}
+
+
+def test_from_snapshot_preserves_written_when_passed():
+    """Cached parallel-branch results must round-trip the write set."""
+    base = Context.create({"x": 0})
+    branch = base.fork("b").set("x", 10).set("y", 20)
+    snap = branch.snapshot()
+    restored = Context.from_snapshot(snap, name="b", written=frozenset(branch._written))
+    merged = Context.merge(base, [restored])
+    assert merged["x"] == 10
+    assert merged["y"] == 20

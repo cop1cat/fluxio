@@ -12,7 +12,6 @@ class Checkpoint:
     ip: int
     ctx_snapshot: dict[str, Any]
     created_at: float
-    error: bool = False
     meta: dict[str, Any] = field(default_factory=dict)
 
 

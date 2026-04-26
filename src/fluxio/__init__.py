@@ -50,6 +50,10 @@ def __getattr__(name: str) -> object:
         from fluxio.store.redis import RedisStore
 
         return RedisStore
+    if name == "LangfuseCallback":
+        from fluxio.observability.langfuse import LangfuseCallback
+
+        return LangfuseCallback
     if name == "StepHarness":
         from fluxio.testing.harness import StepHarness
 
@@ -58,4 +62,8 @@ def __getattr__(name: str) -> object:
         from fluxio.testing.fixtures import make_ctx
 
         return make_ctx
-    raise AttributeError(name)
+    raise AttributeError(
+        f"module 'fluxio' has no attribute {name!r}. "
+        f"Optional names exposed via extras: RedisStore (fluxio[redis]), "
+        f"LangfuseCallback (fluxio[langfuse]), StepHarness, make_ctx."
+    )

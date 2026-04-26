@@ -139,8 +139,13 @@ class Pipeline:
                     durable=self._durable,
                 )
             finally:
-                with contextlib.suppress(asyncio.QueueFull):
-                    queue.put_nowait(sentinel)
+                # Use a blocking put: if the queue is full of buffered chunks
+                # at the moment the interpreter completes, put_nowait would
+                # silently drop the sentinel and the consumer would hang on
+                # the next get(). Cancellation in the early-exit path is
+                # handled by the consumer's outer finally.
+                with contextlib.suppress(asyncio.CancelledError):
+                    await queue.put(sentinel)
 
         task = asyncio.create_task(driver())
         try:
@@ -198,15 +203,19 @@ class Pipeline:
                     created_at=checkpoint.created_at,
                 )
             )
-        return await self._interpreter.run(
-            self._compiled,
-            ctx,
-            run_id,
-            self._callbacks,
-            store=self._store,
-            durable=True,
-            resume=True,
-        )
+        # replay forces durable=True, so the run_id lock applies — without
+        # this guard, two concurrent replays of the same run_id would both
+        # load the same checkpoint and race on writes to the store.
+        async with self._acquire_run_forced(run_id):
+            return await self._interpreter.run(
+                self._compiled,
+                ctx,
+                run_id,
+                self._callbacks,
+                store=self._store,
+                durable=True,
+                resume=True,
+            )
 
     async def diff(self, run_id_a: str, run_id_b: str) -> dict[str, Any]:
         if self._store is None:
@@ -260,6 +269,11 @@ class Pipeline:
         if not self._durable:
             yield
             return
+        async with self._acquire_run_forced(rid):
+            yield
+
+    @contextlib.asynccontextmanager
+    async def _acquire_run_forced(self, rid: str) -> AsyncIterator[None]:
         if rid in self._active_runs:
             raise RunIDInUseError(f"run_id={rid!r} is already running")
         self._active_runs.add(rid)
