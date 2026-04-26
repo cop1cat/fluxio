@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from pyrsistent import pmap
 
+from fluxio.errors import FluxioError
+
 if TYPE_CHECKING:
     from pyrsistent import PMap
 
 
-class MergeConflictError(Exception):
+class MergeConflictError(FluxioError):
     def __init__(self, conflicting_keys: list[str], branch_names: list[str]) -> None:
         self.conflicting_keys = conflicting_keys
         self.branch_names = branch_names

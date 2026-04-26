@@ -25,6 +25,7 @@ Requires Python 3.12+.
 ## Minimal example
 
 ```python
+import asyncio
 from fluxio import Pipeline, stage
 
 @stage
@@ -39,6 +40,8 @@ async def main():
     async with Pipeline([fetch_user, greet]) as pipe:
         result = await pipe.invoke({"user_id": 1})
         print(result["greeting"])
+
+asyncio.run(main())
 ```
 
 ## Production example
@@ -68,29 +71,35 @@ async def stream_response(ctx):
     async for chunk in llm.stream(ctx["prompt"]):
         yield chunk
 
-async with Pipeline(
-    [
-        fetch_user,
-        Parallel([enrich_profile, fetch_orders]),  # or declare reads/writes and let auto-parallel kick in
-        route,
-        {
-            "premium":  [stream_response],
-            "standard": [stream_response],
-        },
-    ],
-    middleware=[
-        CircuitBreakerMiddleware(failure_threshold=5),
-        RetryMiddleware(max_attempts=3, backoff="exponential"),
-        CacheMiddleware(ttl=60),
-    ],
-    callbacks=[LoggingCallback()],
-    checkpoint_store=InMemoryStore(),
-    durable=True,
-) as pipe:
-    result = await pipe.invoke({"user_id": 42}, run_id="req-abc-123")
+# All real code goes inside an async function:
+async def serve(prompt: str, user_id: int):
+    async with Pipeline(
+        [
+            fetch_user,
+            Parallel([enrich_profile, fetch_orders]),  # or declare reads/writes and let auto-parallel kick in
+            route,
+            {
+                "premium":  [stream_response],
+                "standard": [stream_response],
+            },
+        ],
+        middleware=[
+            CircuitBreakerMiddleware(failure_threshold=5),
+            RetryMiddleware(max_attempts=3, backoff="exponential"),
+            CacheMiddleware(ttl=60),
+        ],
+        callbacks=[LoggingCallback()],
+        checkpoint_store=InMemoryStore(),
+        durable=True,
+    ) as pipe:
+        return await pipe.invoke(
+            {"user_id": user_id, "prompt": prompt},
+            run_id="req-abc-123",
+        )
 
-    # resume from checkpoint after a crash
-    result = await pipe.invoke({}, run_id="req-abc-123", resume=True)
+# After a crash, resume from the last checkpoint in a NEW process by
+# constructing the same Pipeline and calling:
+#     await pipe.invoke({}, run_id="req-abc-123", resume=True)
 ```
 
 ### How the pipeline above executes

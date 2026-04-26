@@ -11,6 +11,8 @@ import random
 import time
 from typing import TYPE_CHECKING, Literal
 
+from fluxio.errors import FluxioError
+
 if TYPE_CHECKING:
     from fluxio.api.primitives import StageFunc
     from fluxio.context.context import Context
@@ -168,7 +170,7 @@ class CacheMiddleware(Middleware):
         return f"cache:{node_id}:{digest}"
 
 
-class CircuitOpenError(Exception):
+class CircuitOpenError(FluxioError):
     pass
 
 

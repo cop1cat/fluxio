@@ -76,9 +76,14 @@ async def test_resume_without_checkpoint_raises():
     async def noop(ctx):
         return ctx
 
+    from fluxio import NoCheckpointError
+
     store = InMemoryStore()
     async with Pipeline([noop], checkpoint_store=store, durable=True, auto_parallel=False) as pipe:
-        with pytest.raises(KeyError):
+        with pytest.raises(NoCheckpointError):
+            await pipe.invoke({}, run_id="missing", resume=True)
+        # Still subclass of LookupError for backwards-compat ergonomics.
+        with pytest.raises(LookupError):
             await pipe.invoke({}, run_id="missing", resume=True)
 
 
@@ -117,6 +122,8 @@ async def test_parallel_branch_runs_input_schema():
 
     pipe = Pipeline([Parallel([needs_x, other])], auto_parallel=False)
     # x missing → branch input validation must fail
-    with pytest.raises(RuntimeError, match="Input validation failed"):
+    from fluxio import ValidationError
+
+    with pytest.raises(ValidationError, match="Input validation failed"):
         await pipe.invoke({})
     pipe.shutdown()

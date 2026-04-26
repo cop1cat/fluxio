@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fluxio.api.primitives import ForkMode, Send
 from fluxio.compiler.bytecode import OpCode
 from fluxio.context.context import Context
+from fluxio.errors import FluxioError, NoCheckpointError, ValidationError
 from fluxio.store.base import Checkpoint, CheckpointVersionError
 
 if TYPE_CHECKING:
@@ -67,7 +68,7 @@ class Interpreter:
                 raise RuntimeError("resume=True requires a checkpoint_store")
             existing = await store.load(run_id)
             if existing is None:
-                raise KeyError(f"No checkpoint to resume for run_id={run_id!r}")
+                raise NoCheckpointError(f"No checkpoint to resume for run_id={run_id!r}")
             if existing.pipeline_version != compiled.version:
                 raise CheckpointVersionError(
                     f"Checkpoint pipeline_version={existing.pipeline_version} "
@@ -130,7 +131,7 @@ class Interpreter:
                     pass
                 elif op == OpCode.ROUTE:
                     if pending_route is None:
-                        raise RuntimeError("ROUTE instruction reached without a preceding Send")
+                        raise FluxioError("ROUTE instruction reached without a preceding Send")
                     await _safe_dispatch(
                         callbacks, "on_route", run_id, pending_route_step or "?", pending_route
                     )
@@ -140,7 +141,7 @@ class Interpreter:
                     continue
                 elif op == OpCode.JUMP:
                     if instr.target_ip is None:
-                        raise RuntimeError("JUMP instruction without target_ip")
+                        raise FluxioError("JUMP instruction without target_ip")
                     ip = instr.target_ip
                     continue
                 ip += 1
@@ -217,7 +218,7 @@ class Interpreter:
             schema.model_validate(ctx.snapshot())
         except Exception as e:
             kind = "Input" if is_input else "Output"
-            raise RuntimeError(f"{kind} validation failed for {node_id!r}: {e}") from e
+            raise ValidationError(f"{kind} validation failed for {node_id!r}: {e}") from e
 
     async def _call(
         self,
@@ -257,21 +258,32 @@ class Interpreter:
             branches.append((bid, fn, ctx.fork(bid)))
 
         async def runner(fn: StageFunc, c: Context, nid: str) -> Context:
+            # Each branch starts its own span. The try/finally guarantees
+            # on_step_end fires even if the branch fails — otherwise sibling
+            # branches that already emitted on_step_start could be cancelled
+            # mid-flight by gather and leave open spans in observability
+            # backends like Langfuse.
             await _safe_dispatch(callbacks, "on_step_start", run_id, nid, c)
             start = time.monotonic()
-            # Branches go through CALL directly without VALIDATE_INPUT/OUTPUT
-            # opcodes (their bodies are not inlined into the instruction
-            # stream), so re-run any declared schemas explicitly here.
-            self._run_validation(nid, c, compiled, is_input=True)
-            result = await self._call(nid, fn, c, callbacks, run_id)
-            if isinstance(result, Send):
-                raise RuntimeError(
-                    f"Stage {nid!r} in FORK returned Send; not supported in parallel branches"
-                )
-            self._run_validation(nid, result, compiled, is_input=False)
-            duration_ms = int((time.monotonic() - start) * 1000)
-            await _safe_dispatch(callbacks, "on_step_end", run_id, nid, result, duration_ms)
-            return result
+            final_ctx: Context = c
+            try:
+                # Branches go through CALL directly without VALIDATE_INPUT /
+                # VALIDATE_OUTPUT opcodes (their bodies are not inlined into
+                # the instruction stream), so re-run any declared schemas
+                # explicitly here.
+                self._run_validation(nid, c, compiled, is_input=True)
+                result = await self._call(nid, fn, c, callbacks, run_id)
+                if isinstance(result, Send):
+                    raise FluxioError(
+                        f"Stage {nid!r} in FORK returned Send; "
+                        f"Send is not supported in parallel branches"
+                    )
+                self._run_validation(nid, result, compiled, is_input=False)
+                final_ctx = result
+                return result
+            finally:
+                duration_ms = int((time.monotonic() - start) * 1000)
+                await _safe_dispatch(callbacks, "on_step_end", run_id, nid, final_ctx, duration_ms)
 
         results = await self._scheduler.run_parallel(
             branches, instr.mode or ForkMode.PARALLEL, runner
@@ -289,10 +301,10 @@ class Interpreter:
     @staticmethod
     def _resolve_route_map(instr: Instruction, route: str) -> int:
         if instr.route_map is None:
-            raise RuntimeError(f"No route_map for instruction {instr!r}")
+            raise FluxioError(f"No route_map for instruction {instr!r}")
         mapping = dict(instr.route_map)
         if route not in mapping:
-            raise RuntimeError(f"Unknown route {route!r} in route_map")
+            raise FluxioError(f"Unknown route {route!r} — available: {sorted(mapping.keys())}")
         return mapping[route]
 
     @staticmethod

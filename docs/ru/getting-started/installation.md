@@ -25,7 +25,7 @@ pip install fluxio[all]        # всё сразу
 Понадобится, если вы хотите править код или собирать локально:
 
 ```bash
-git clone https://github.com/example/fluxio
+git clone https://github.com/cop1cat/fluxio
 cd fluxio
 uv sync --all-extras
 uv run pytest

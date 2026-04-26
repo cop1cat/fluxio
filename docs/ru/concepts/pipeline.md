@@ -62,7 +62,7 @@ out = await pipe.run_step("fetch_user", {"user_id": 1})
 
 ### `replay` — повтор по чекпоинту
 
-Перезапуск пайплайна с сохранённого состояния. Требует `durable=True`:
+Перезапуск пайплайна с сохранённого состояния. Нужен настроенный `checkpoint_store` (`durable=True` его создаёт автоматически — `replay` форсит durable внутри себя):
 
 ```python
 await pipe.replay("req-1")

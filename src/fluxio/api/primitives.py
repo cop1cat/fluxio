@@ -23,15 +23,16 @@ class ForkMode(StrEnum):
 
 @dataclass(frozen=True)
 class Send:
+    """Signal a routing decision from a router stage.
+
+    Returned (instead of a ``Context``) by a stage immediately followed by a
+    ``dict`` routing block. The ``route`` selects which dict key's body to
+    execute next; ``patch`` is merged into the live context as soon as the
+    router returns, before the route lookup happens.
+    """
+
     route: str
     patch: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class NodeResult:
-    ctx: Context
-    duration_ms: int
-    node_id: str
 
 
 @runtime_checkable
