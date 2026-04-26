@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/concepts/context/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/concepts/context/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/concepts/context/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/concepts/pipeline/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/concepts/pipeline/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/concepts/pipeline/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/concepts/stage/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/concepts/stage/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/concepts/stage/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/getting-started/installation/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/getting-started/quickstart/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/durable/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/durable/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/durable/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/middleware/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/middleware/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/middleware/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/observability/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/observability/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/observability/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/parallel/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/parallel/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/parallel/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/routing/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/routing/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/routing/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/streaming/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/streaming/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/streaming/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/guides/testing/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/guides/testing/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/guides/testing/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/reference/api/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev/reference/api/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/devru/reference/api/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/dev"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/concepts/context/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/concepts/context/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devconcepts/context/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/concepts/pipeline/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/concepts/pipeline/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devconcepts/pipeline/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/concepts/stage/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/concepts/stage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devconcepts/stage/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/getting-started/installation/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devgetting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/getting-started/quickstart/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devgetting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/durable/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/durable/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/durable/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/middleware/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/middleware/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/middleware/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/observability/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/observability/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/observability/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/parallel/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/parallel/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/parallel/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/routing/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/routing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/routing/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/streaming/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/streaming/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/streaming/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/guides/testing/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/guides/testing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devguides/testing/"/>
+    </url>
+    <url>
+        <loc>https://cop1cat.github.io/fluxio/dev/ru/reference/api/</loc>
+        <lastmod>2026-04-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://cop1cat.github.io/fluxio/dev/ru/reference/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cop1cat.github.io/fluxio/devreference/api/"/>
+    </url>
+</urlset>
