@@ -62,6 +62,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocs-static-i18n>=1.2",
     "mkdocstrings[python]>=0.26",
+    "mike>=2.1",
 ]
 
 [build-system]
