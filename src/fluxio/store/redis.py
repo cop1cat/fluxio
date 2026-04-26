@@ -7,6 +7,18 @@ from typing import Any
 from fluxio.store.base import Checkpoint, CheckpointStore
 
 
+def _json_default(obj: Any) -> Any:
+    """Best-effort fallback encoder for ctx_snapshot values.
+
+    ``Context`` accepts arbitrary Python objects and ``InMemoryStore`` keeps
+    them as-is. Redis storage requires JSON, so anything not natively
+    serializable is rendered via ``str(obj)``. The round-trip is therefore
+    lossy for those types — keep ctx values JSON-safe (or use a richer
+    serializer) if exact round-trip matters.
+    """
+    return str(obj)
+
+
 class RedisStore(CheckpointStore):
     def __init__(
         self,
@@ -28,7 +40,13 @@ class RedisStore(CheckpointStore):
         return f"{self._prefix}:{run_id}"
 
     async def save(self, checkpoint: Checkpoint) -> None:
-        payload = json.dumps(asdict(checkpoint))
+        try:
+            payload = json.dumps(asdict(checkpoint), default=_json_default)
+        except (TypeError, ValueError) as e:
+            raise TypeError(
+                f"Checkpoint for run_id={checkpoint.run_id!r} is not JSON-serializable "
+                f"even with str() fallback: {e}. Keep ctx values JSON-safe when using RedisStore."
+            ) from e
         await self._client.set(self._key(checkpoint.run_id), payload, ex=self._ttl)
 
     async def load(self, run_id: str) -> Checkpoint | None:

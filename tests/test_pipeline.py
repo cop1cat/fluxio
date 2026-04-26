@@ -76,9 +76,14 @@ async def test_resume_without_checkpoint_raises():
     async def noop(ctx):
         return ctx
 
+    from fluxio import NoCheckpointError
+
     store = InMemoryStore()
     async with Pipeline([noop], checkpoint_store=store, durable=True, auto_parallel=False) as pipe:
-        with pytest.raises(KeyError):
+        with pytest.raises(NoCheckpointError):
+            await pipe.invoke({}, run_id="missing", resume=True)
+        # Still subclass of LookupError for backwards-compat ergonomics.
+        with pytest.raises(LookupError):
             await pipe.invoke({}, run_id="missing", resume=True)
 
 
@@ -94,4 +99,31 @@ async def test_explain_includes_version():
     text = pipe.explain()
     assert "Pipeline" in text
     assert "fetch" in text
+    pipe.shutdown()
+
+
+async def test_parallel_branch_runs_input_schema():
+    """Regression: input_schema declared on a stage must validate even when stage runs as a Parallel branch."""
+    from pydantic import BaseModel
+    import pytest
+
+    from fluxio import Parallel, Pipeline, stage
+
+    class NeedsX(BaseModel):
+        x: int
+
+    @stage(input_schema=NeedsX)
+    async def needs_x(ctx):
+        return ctx.set("x_seen", ctx["x"])
+
+    @stage
+    async def other(ctx):
+        return ctx.set("y", 1)
+
+    pipe = Pipeline([Parallel([needs_x, other])], auto_parallel=False)
+    # x missing → branch input validation must fail
+    from fluxio import ValidationError
+
+    with pytest.raises(ValidationError, match="Input validation failed"):
+        await pipe.invoke({})
     pipe.shutdown()

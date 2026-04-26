@@ -10,6 +10,7 @@ from fluxio.api.parallel import Parallel
 from fluxio.api.primitives import NodeType
 from fluxio.compiler.compiler import Compiler
 from fluxio.context.context import Context
+from fluxio.errors import FluxioError, NoCheckpointError
 from fluxio.runtime.interpreter import Interpreter
 from fluxio.runtime.middleware import MiddlewareChain
 from fluxio.runtime.scheduler import Scheduler
@@ -28,7 +29,7 @@ _logger = logging.getLogger("fluxio.pipeline")
 PipelineNode = "StageFunc | Parallel | dict[str, Any]"
 
 
-class RunIDInUseError(RuntimeError):
+class RunIDInUseError(FluxioError):
     """Raised when a durable invoke is attempted with a run_id already in progress."""
 
 
@@ -114,6 +115,10 @@ class Pipeline:
 
         Chunks from multiple STREAM stages are yielded in the order produced.
         Use an ``on_step_stream`` callback if you need to tag chunks by stage.
+
+        With ``durable=True`` the run_id is gated by the same single-flight
+        lock as ``invoke``: a concurrent ``stream`` or ``invoke`` on the same
+        run_id raises :class:`RunIDInUseError`.
         """
         from fluxio.observability.base import BaseCallback
 
@@ -139,28 +144,53 @@ class Pipeline:
                     durable=self._durable,
                 )
             finally:
-                with contextlib.suppress(asyncio.QueueFull):
-                    queue.put_nowait(sentinel)
+                # Use a blocking put: if the queue is full of buffered chunks
+                # at the moment the interpreter completes, put_nowait would
+                # silently drop the sentinel and the consumer would hang on
+                # the next get(). Cancellation in the early-exit path is
+                # handled by the consumer's outer finally.
+                with contextlib.suppress(asyncio.CancelledError):
+                    await queue.put(sentinel)
 
-        task = asyncio.create_task(driver())
-        try:
-            while True:
-                item = await queue.get()
-                if item is sentinel:
-                    break
-                yield item
-            await task
-        finally:
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await task
+        # The run_id lock must guard ``stream`` exactly like it guards
+        # ``invoke`` — otherwise concurrent stream + invoke (or two
+        # concurrent streams) on the same durable run_id race on checkpoint
+        # writes. The lock is held for the whole producer task lifetime.
+        async with self._acquire_run(rid):
+            task = asyncio.create_task(driver())
+            try:
+                while True:
+                    item = await queue.get()
+                    if item is sentinel:
+                        break
+                    yield item
+                await task
+            finally:
+                if not task.done():
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await task
 
     async def run_step(
         self,
         step_name: str,
         ctx: dict[str, Any] | Context,
     ) -> Context:
+        """Execute a single stage in isolation, mostly for testing.
+
+        Looks up ``step_name`` in the compiled symbol table and runs it
+        through the pipeline's middleware chain. Pipeline-level concerns
+        (callbacks, checkpoints, validation opcodes, routing, parallelism)
+        are NOT applied — this is a focused harness, not a substitute for
+        ``invoke``.
+
+        If the stage returns a :class:`Send`, its ``patch`` is merged into
+        the input context and the resulting context is returned (the route
+        itself is ignored, since there is no following dict block here).
+
+        Raises:
+            KeyError: if ``step_name`` is not a stage in this pipeline.
+        """
         fn = self._compiled.symbol_table.get(step_name)
         if fn is None:
             raise KeyError(f"No stage named {step_name!r} in pipeline")
@@ -181,40 +211,74 @@ class Pipeline:
         *,
         from_step: str | None = None,
     ) -> Context:
+        """Re-run a pipeline from a stored checkpoint.
+
+        Loads the checkpoint identified by ``run_id`` and continues execution
+        from the saved instruction pointer. If ``from_step`` is provided, the
+        checkpoint is rewritten so execution resumes from that step's
+        ``step_start`` event.
+
+        Requires a configured ``checkpoint_store`` (passing ``durable=True``
+        on the constructor is sufficient — replay forces durable mode for
+        the inner run regardless). The whole replay (including any
+        ``from_step`` rewrite) is held under the run_id lock, so concurrent
+        replays of the same run_id raise :class:`RunIDInUseError`.
+
+        Raises:
+            RuntimeError: if no ``checkpoint_store`` was configured.
+            NoCheckpointError: if no checkpoint exists for ``run_id``.
+            KeyError: if ``from_step`` is not a step in this pipeline.
+            RunIDInUseError: if another replay/invoke for ``run_id`` is in flight.
+        """
         if self._store is None:
             raise RuntimeError("replay requires a checkpoint_store")
-        checkpoint = await self._store.load(run_id)
-        if checkpoint is None:
-            raise KeyError(f"No checkpoint for run_id={run_id!r}")
-        ctx = Context.from_snapshot(checkpoint.ctx_snapshot, name="replay")
-        if from_step is not None:
-            ip = self._find_step_ip(from_step)
-            await self._store.save(
-                type(checkpoint)(
-                    run_id=run_id,
-                    pipeline_version=self._compiled.version,
-                    ip=ip,
-                    ctx_snapshot=ctx.snapshot(),
-                    created_at=checkpoint.created_at,
+        # Hold the run_id lock around BOTH the checkpoint rewrite and the
+        # interpreter run. Doing the rewrite outside the lock would let two
+        # concurrent replays both call store.save and race on the persisted
+        # state before the second one is rejected by _acquire_run_forced.
+        async with self._acquire_run_forced(run_id):
+            checkpoint = await self._store.load(run_id)
+            if checkpoint is None:
+                raise NoCheckpointError(f"No checkpoint for run_id={run_id!r}")
+            ctx = Context.from_snapshot(checkpoint.ctx_snapshot, name="replay")
+            if from_step is not None:
+                ip = self._find_step_ip(from_step)
+                await self._store.save(
+                    type(checkpoint)(
+                        run_id=run_id,
+                        pipeline_version=self._compiled.version,
+                        ip=ip,
+                        ctx_snapshot=ctx.snapshot(),
+                        created_at=checkpoint.created_at,
+                    )
                 )
+            return await self._interpreter.run(
+                self._compiled,
+                ctx,
+                run_id,
+                self._callbacks,
+                store=self._store,
+                durable=True,
+                resume=True,
             )
-        return await self._interpreter.run(
-            self._compiled,
-            ctx,
-            run_id,
-            self._callbacks,
-            store=self._store,
-            durable=True,
-            resume=True,
-        )
 
     async def diff(self, run_id_a: str, run_id_b: str) -> dict[str, Any]:
+        """Compare ``ctx_snapshot`` between two stored checkpoints.
+
+        Returns a dict mapping each differing key to ``{"a": value_a, "b": value_b}``.
+        Keys present in only one snapshot show up with ``None`` on the other side.
+
+        Raises:
+            RuntimeError: if no ``checkpoint_store`` was configured.
+            NoCheckpointError: if either ``run_id`` has no stored checkpoint.
+        """
         if self._store is None:
             raise RuntimeError("diff requires a checkpoint_store")
         a = await self._store.load(run_id_a)
         b = await self._store.load(run_id_b)
         if a is None or b is None:
-            raise KeyError("Both run_ids must have checkpoints")
+            missing = run_id_a if a is None else run_id_b
+            raise NoCheckpointError(f"No checkpoint for run_id={missing!r}")
         snap_a = a.ctx_snapshot
         snap_b = b.ctx_snapshot
         keys = set(snap_a) | set(snap_b)
@@ -260,6 +324,11 @@ class Pipeline:
         if not self._durable:
             yield
             return
+        async with self._acquire_run_forced(rid):
+            yield
+
+    @contextlib.asynccontextmanager
+    async def _acquire_run_forced(self, rid: str) -> AsyncIterator[None]:
         if rid in self._active_runs:
             raise RunIDInUseError(f"run_id={rid!r} is already running")
         self._active_runs.add(rid)

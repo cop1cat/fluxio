@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from fluxio.errors import FluxioError
+
 
 @dataclass
 class Checkpoint:
@@ -12,11 +14,10 @@ class Checkpoint:
     ip: int
     ctx_snapshot: dict[str, Any]
     created_at: float
-    error: bool = False
     meta: dict[str, Any] = field(default_factory=dict)
 
 
-class CheckpointVersionError(Exception):
+class CheckpointVersionError(FluxioError):
     pass
 
 

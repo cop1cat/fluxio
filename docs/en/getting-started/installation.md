@@ -19,7 +19,7 @@ pip install fluxio[all]        # everything
 ## Dev install from source
 
 ```bash
-git clone https://github.com/example/fluxio
+git clone https://github.com/cop1cat/fluxio
 cd fluxio
 uv sync --all-extras
 uv run pytest

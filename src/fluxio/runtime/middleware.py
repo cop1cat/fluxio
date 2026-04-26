@@ -11,6 +11,8 @@ import random
 import time
 from typing import TYPE_CHECKING, Literal
 
+from fluxio.errors import FluxioError
+
 if TYPE_CHECKING:
     from fluxio.api.primitives import StageFunc
     from fluxio.context.context import Context
@@ -139,10 +141,21 @@ class CacheMiddleware(Middleware):
         now = time.time()
         if existing and (now - existing.created_at) < self.ttl:
             _logger.debug("cache hit stage=%s", getattr(fn, "__name__", "?"))
-            return _Ctx.from_snapshot(existing.value, name=ctx.name)
+            return _Ctx.from_snapshot(
+                existing.value,
+                name=ctx.name,
+                written=frozenset(existing.written),
+            )
 
         result = await next(fn, ctx)
-        await self.store.set(key, CacheEntry(value=result.snapshot(), created_at=now))
+        await self.store.set(
+            key,
+            CacheEntry(
+                value=result.snapshot(),
+                created_at=now,
+                written=tuple(result._written),
+            ),
+        )
         return result
 
     def _build_key(self, fn: StageFunc, ctx: Context) -> str:
@@ -157,7 +170,7 @@ class CacheMiddleware(Middleware):
         return f"cache:{node_id}:{digest}"
 
 
-class CircuitOpenError(Exception):
+class CircuitOpenError(FluxioError):
     pass
 
 
@@ -180,26 +193,50 @@ class CircuitBreakerMiddleware(Middleware):
         self._failures = 0
         self._state: Literal["closed", "open", "half_open"] = "closed"
         self._opened_at: float | None = None
+        self._probing = False
         self._lock = asyncio.Lock()
 
     async def __call__(self, fn: StageFunc, ctx: Context, next: Next) -> Context:
+        # Track whether THIS call is the half-open probe. Only the probe
+        # closes/re-opens the circuit; concurrent callers see the breaker
+        # as still open and bail out fast.
+        is_probe = False
         async with self._lock:
             if self._state == "open":
                 assert self._opened_at is not None
-                if time.monotonic() - self._opened_at >= self.recovery_timeout:
+                if (
+                    time.monotonic() - self._opened_at >= self.recovery_timeout
+                    and not self._probing
+                ):
                     self._state = "half_open"
+                    self._probing = True
+                    is_probe = True
                 else:
                     raise CircuitOpenError(f"Circuit open for stage {getattr(fn, '__name__', '?')}")
+            elif self._state == "half_open" and not self._probing:
+                self._probing = True
+                is_probe = True
+            elif self._state == "half_open":
+                raise CircuitOpenError(
+                    f"Circuit half-open probe in flight for stage {getattr(fn, '__name__', '?')}"
+                )
         try:
             result = await next(fn, ctx)
         except self.exceptions:
             async with self._lock:
-                self._failures += 1
-                if self._failures >= self.failure_threshold:
+                if is_probe:
+                    self._probing = False
                     self._state = "open"
                     self._opened_at = time.monotonic()
+                else:
+                    self._failures += 1
+                    if self._failures >= self.failure_threshold:
+                        self._state = "open"
+                        self._opened_at = time.monotonic()
             raise
         async with self._lock:
+            if is_probe:
+                self._probing = False
             self._failures = 0
             self._state = "closed"
             self._opened_at = None

@@ -159,3 +159,90 @@ async def test_step_harness_context_manager_closes():
         result = await h.run({})
     assert result.get("x") == 1
     assert h._thread_pool._shutdown is True
+
+
+async def test_callback_exception_in_on_error_does_not_replace_original():
+    """A flaky callback must not replace the user's stage exception in the traceback."""
+    from fluxio import BaseCallback, Pipeline, stage
+
+    class BrokenCallback(BaseCallback):
+        async def on_error(self, run_id, step, error):
+            raise RuntimeError("callback exploded")
+
+    @stage
+    async def fail(ctx):
+        raise ValueError("real error")
+
+    pipe = Pipeline([fail], callbacks=[BrokenCallback()], auto_parallel=False)
+    import pytest
+
+    with pytest.raises(ValueError, match="real error"):
+        await pipe.invoke({})
+    pipe.shutdown()
+
+
+async def test_stage_timeout_emits_step_end_for_open_spans():
+    """When a stage times out, observability spans must be closed before the error propagates."""
+    from fluxio import BaseCallback, Pipeline, stage
+
+    class SpanTracker(BaseCallback):
+        def __init__(self):
+            self.opened: list[str] = []
+            self.closed: list[str] = []
+
+        async def on_step_start(self, run_id, step, ctx):
+            self.opened.append(step)
+
+        async def on_step_end(self, run_id, step, ctx, duration_ms):
+            self.closed.append(step)
+
+    import asyncio
+
+    import pytest
+
+    @stage(timeout=0.05)
+    async def slow(ctx):
+        await asyncio.sleep(1)
+        return ctx
+
+    tracker = SpanTracker()
+    pipe = Pipeline([slow], callbacks=[tracker], auto_parallel=False)
+    with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+        await pipe.invoke({})
+    assert tracker.opened == ["slow"]
+    assert tracker.closed == ["slow"]
+    pipe.shutdown()
+
+
+async def test_replay_holds_run_id_lock():
+    """Concurrent replays of the same run_id must reject the second one."""
+    import asyncio
+
+    from fluxio import InMemoryStore, Pipeline, RunIDInUseError, stage
+    from fluxio.store.base import Checkpoint
+
+    @stage
+    async def slow(ctx):
+        await asyncio.sleep(0.05)
+        return ctx.set("done", True)
+
+    store = InMemoryStore()
+    pipe = Pipeline([slow], checkpoint_store=store, durable=True, auto_parallel=False)
+    # Seed a checkpoint at ip=0 so replay has something to load.
+    await store.save(
+        Checkpoint(
+            run_id="r1",
+            pipeline_version=pipe.version,
+            ip=0,
+            ctx_snapshot={"x": 1},
+            created_at=0.0,
+        )
+    )
+    a = asyncio.create_task(pipe.replay("r1"))
+    await asyncio.sleep(0)  # let `a` enter the lock
+    import pytest
+
+    with pytest.raises(RunIDInUseError):
+        await pipe.replay("r1")
+    await a
+    pipe.shutdown()

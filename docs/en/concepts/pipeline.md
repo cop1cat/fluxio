@@ -58,7 +58,7 @@ out = await pipe.run_step("fetch_user", {"user_id": 1})
 
 ### `replay`
 
-Re-runs a pipeline from a stored checkpoint. Requires `durable=True`:
+Re-runs a pipeline from a stored checkpoint. Requires a configured `checkpoint_store` (passing `durable=True` is sufficient — replay forces durable mode internally):
 
 ```python
 await pipe.replay("req-1")

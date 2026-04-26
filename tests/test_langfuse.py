@@ -13,7 +13,7 @@ class _FakeSpan:
         self.log = log
         log.append(("start", name))
 
-    def start_span(self, name: str) -> "_FakeSpan":
+    def start_observation(self, *, name: str, as_type: str = "span") -> "_FakeSpan":
         return _FakeSpan(name, self.log)
 
     def update(self, **kwargs) -> None:
@@ -30,7 +30,7 @@ class _FakeLangfuse:
         self.log: list = []
         _FakeLangfuse.instances.append(self)
 
-    def start_span(self, name: str) -> _FakeSpan:
+    def start_observation(self, *, name: str, as_type: str = "span") -> _FakeSpan:
         return _FakeSpan(name, self.log)
 
 
@@ -64,3 +64,33 @@ async def test_langfuse_emits_spans_for_pipeline(fake_langfuse):
     names_ended = [n for (e, n, *_) in events if e == "end"]
     assert names_started == ["run-lf", "a", "b"]
     assert set(names_ended) == {"run-lf", "a", "b"}
+
+
+async def test_langfuse_closes_spans_on_pipeline_failure(fake_langfuse):
+    """Regression: when a stage raises, both the failing-step span and the root span must be ended."""
+    from fluxio.observability.langfuse import LangfuseCallback
+
+    @stage
+    async def kaboom(ctx):
+        raise ValueError("boom")
+
+    cb = LangfuseCallback(public_key="pk", secret_key="sk")
+    pipe = Pipeline([kaboom], callbacks=[cb], auto_parallel=False)
+    with pytest.raises(ValueError):
+        await pipe.invoke({}, run_id="run-fail")
+    pipe.shutdown()
+
+    [instance] = fake_langfuse.instances
+    ended = {n for (e, n, *_) in instance.log if e == "end"}
+    # Both the root and the failing step must have been closed.
+    assert "run-fail" in ended
+    assert "kaboom" in ended
+
+
+def test_langfuse_callback_is_lazily_importable():
+    """`from fluxio import LangfuseCallback` must work via __getattr__."""
+    import fluxio
+
+    cls = getattr(fluxio, "LangfuseCallback", None)
+    assert cls is not None
+    assert getattr(cls, "__name__", "") == "LangfuseCallback"

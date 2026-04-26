@@ -14,7 +14,7 @@ pipeline = Pipeline(
 )
 ```
 
-Before every `CALL` instruction the interpreter saves `ctx.snapshot()` together with the instruction pointer. If the stage raises, a final checkpoint is written with `error=True` and the exception propagates.
+Before every `CALL` instruction the interpreter saves `ctx.snapshot()` together with the instruction pointer. If the stage raises, the last successful checkpoint is preserved untouched and the exception propagates — `resume=True` will restart from that checkpoint and replay the failing stage cleanly.
 
 ## Fresh runs vs resume
 

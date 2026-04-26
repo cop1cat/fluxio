@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fluxio.api.primitives import ForkMode, Send
 from fluxio.compiler.bytecode import OpCode
 from fluxio.context.context import Context
+from fluxio.errors import FluxioError, NoCheckpointError, ValidationError
 from fluxio.store.base import Checkpoint, CheckpointVersionError
 
 if TYPE_CHECKING:
@@ -19,6 +20,26 @@ if TYPE_CHECKING:
     from fluxio.store.base import CheckpointStore
 
 _logger = logging.getLogger("fluxio.interpreter")
+
+
+async def _safe_dispatch(
+    callbacks: list[BaseCallback],
+    method: str,
+    *args: Any,
+) -> None:
+    """Invoke ``method`` on every callback, swallowing and logging exceptions.
+
+    Observability sinks (Langfuse, OTel, custom metrics) routinely have flaky
+    network paths. Letting one of those failures abort the user's pipeline —
+    or, worse, replace the user's stage exception with a callback exception —
+    is never the right behaviour. The contract is: callbacks are best-effort,
+    failures land in the ``fluxio.interpreter`` logger at WARNING level.
+    """
+    for cb in callbacks:
+        try:
+            await getattr(cb, method)(*args)
+        except Exception:
+            _logger.warning("Callback %s.%s raised", type(cb).__name__, method, exc_info=True)
 
 
 class Interpreter:
@@ -47,7 +68,7 @@ class Interpreter:
                 raise RuntimeError("resume=True requires a checkpoint_store")
             existing = await store.load(run_id)
             if existing is None:
-                raise KeyError(f"No checkpoint to resume for run_id={run_id!r}")
+                raise NoCheckpointError(f"No checkpoint to resume for run_id={run_id!r}")
             if existing.pipeline_version != compiled.version:
                 raise CheckpointVersionError(
                     f"Checkpoint pipeline_version={existing.pipeline_version} "
@@ -84,8 +105,9 @@ class Interpreter:
                                 created_at=time.time(),
                             )
                         )
-                        for cb in callbacks:
-                            await cb.on_checkpoint(run_id, instr.node_id or "?", ip)
+                        await _safe_dispatch(
+                            callbacks, "on_checkpoint", run_id, instr.node_id or "?", ip
+                        )
                 elif op == OpCode.VALIDATE_INPUT:
                     self._validate(instr, ctx, compiled, is_input=True)
                 elif op == OpCode.VALIDATE_OUTPUT:
@@ -109,23 +131,30 @@ class Interpreter:
                     pass
                 elif op == OpCode.ROUTE:
                     if pending_route is None:
-                        raise RuntimeError("ROUTE instruction reached without a preceding Send")
-                    for cb in callbacks:
-                        await cb.on_route(run_id, pending_route_step or "?", pending_route)
+                        raise FluxioError("ROUTE instruction reached without a preceding Send")
+                    await _safe_dispatch(
+                        callbacks, "on_route", run_id, pending_route_step or "?", pending_route
+                    )
                     ip = self._resolve_route_map(instr, pending_route)
                     pending_route = None
                     pending_route_step = None
                     continue
                 elif op == OpCode.JUMP:
                     if instr.target_ip is None:
-                        raise RuntimeError("JUMP instruction without target_ip")
+                        raise FluxioError("JUMP instruction without target_ip")
                     ip = instr.target_ip
                     continue
                 ip += 1
         except Exception as e:
             step_name = self._current_step(instructions, ip)
-            for cb in callbacks:
-                await cb.on_error(run_id, step_name, e)
+            # Close any open step spans (e.g. when a stage timed out the
+            # next instruction — its EMIT step_end — never executed) so
+            # observability sinks like Langfuse don't leak unclosed spans.
+            for nid, started in list(step_timers.items()):
+                duration_ms = int((time.monotonic() - started) * 1000)
+                await _safe_dispatch(callbacks, "on_step_end", run_id, nid, ctx, duration_ms)
+                step_timers.pop(nid, None)
+            await _safe_dispatch(callbacks, "on_error", run_id, step_name, e)
             # On failure we preserve the last successful CHECKPOINT untouched.
             # Resume from it replays step_start / VALIDATE_INPUT / CALL cleanly.
             raise
@@ -144,20 +173,20 @@ class Interpreter:
     ) -> None:
         event = instr.event_type
         node_id = instr.node_id
-        for cb in callbacks:
-            if event == "pipeline_start":
-                await cb.on_pipeline_start(run_id, ctx)
-            elif event == "pipeline_end":
-                duration_ms = int((time.monotonic() - pipeline_started_at) * 1000)
-                await cb.on_pipeline_end(run_id, ctx, duration_ms)
-            elif event == "step_start" and node_id is not None:
-                step_timers[node_id] = time.monotonic()
-                await cb.on_step_start(run_id, node_id, ctx)
-            elif event == "step_end" and node_id is not None:
-                start = step_timers.pop(node_id, time.monotonic())
-                await cb.on_step_end(run_id, node_id, ctx, int((time.monotonic() - start) * 1000))
-            elif event == "branch" and instr.branch_ids is not None:
-                await cb.on_branch(run_id, list(instr.branch_ids))
+        if event == "pipeline_start":
+            await _safe_dispatch(callbacks, "on_pipeline_start", run_id, ctx)
+        elif event == "pipeline_end":
+            duration_ms = int((time.monotonic() - pipeline_started_at) * 1000)
+            await _safe_dispatch(callbacks, "on_pipeline_end", run_id, ctx, duration_ms)
+        elif event == "step_start" and node_id is not None:
+            step_timers[node_id] = time.monotonic()
+            await _safe_dispatch(callbacks, "on_step_start", run_id, node_id, ctx)
+        elif event == "step_end" and node_id is not None:
+            start = step_timers.pop(node_id, time.monotonic())
+            duration_ms = int((time.monotonic() - start) * 1000)
+            await _safe_dispatch(callbacks, "on_step_end", run_id, node_id, ctx, duration_ms)
+        elif event == "branch" and instr.branch_ids is not None:
+            await _safe_dispatch(callbacks, "on_branch", run_id, list(instr.branch_ids))
 
     def _validate(
         self,
@@ -168,10 +197,20 @@ class Interpreter:
         is_input: bool,
     ) -> None:
         assert instr.node_id is not None
+        self._run_validation(instr.node_id, ctx, compiled, is_input=is_input)
+
+    @staticmethod
+    def _run_validation(
+        node_id: str,
+        ctx: Context,
+        compiled: CompiledPipeline,
+        *,
+        is_input: bool,
+    ) -> None:
         schema = (
-            compiled.input_schemas.get(instr.node_id)
+            compiled.input_schemas.get(node_id)
             if is_input
-            else compiled.output_schemas.get(instr.node_id)
+            else compiled.output_schemas.get(node_id)
         )
         if schema is None:
             return
@@ -179,7 +218,7 @@ class Interpreter:
             schema.model_validate(ctx.snapshot())
         except Exception as e:
             kind = "Input" if is_input else "Output"
-            raise RuntimeError(f"{kind} validation failed for {instr.node_id!r}: {e}") from e
+            raise ValidationError(f"{kind} validation failed for {node_id!r}: {e}") from e
 
     async def _call(
         self,
@@ -219,17 +258,32 @@ class Interpreter:
             branches.append((bid, fn, ctx.fork(bid)))
 
         async def runner(fn: StageFunc, c: Context, nid: str) -> Context:
-            for cb in callbacks:
-                await cb.on_step_start(run_id, nid, c)
+            # Each branch starts its own span. The try/finally guarantees
+            # on_step_end fires even if the branch fails — otherwise sibling
+            # branches that already emitted on_step_start could be cancelled
+            # mid-flight by gather and leave open spans in observability
+            # backends like Langfuse.
+            await _safe_dispatch(callbacks, "on_step_start", run_id, nid, c)
             start = time.monotonic()
-            result = await self._call(nid, fn, c, callbacks, run_id)
-            if isinstance(result, Send):
-                raise RuntimeError(
-                    f"Stage {nid!r} in FORK returned Send; not supported in parallel branches"
-                )
-            for cb in callbacks:
-                await cb.on_step_end(run_id, nid, result, int((time.monotonic() - start) * 1000))
-            return result
+            final_ctx: Context = c
+            try:
+                # Branches go through CALL directly without VALIDATE_INPUT /
+                # VALIDATE_OUTPUT opcodes (their bodies are not inlined into
+                # the instruction stream), so re-run any declared schemas
+                # explicitly here.
+                self._run_validation(nid, c, compiled, is_input=True)
+                result = await self._call(nid, fn, c, callbacks, run_id)
+                if isinstance(result, Send):
+                    raise FluxioError(
+                        f"Stage {nid!r} in FORK returned Send; "
+                        f"Send is not supported in parallel branches"
+                    )
+                self._run_validation(nid, result, compiled, is_input=False)
+                final_ctx = result
+                return result
+            finally:
+                duration_ms = int((time.monotonic() - start) * 1000)
+                await _safe_dispatch(callbacks, "on_step_end", run_id, nid, final_ctx, duration_ms)
 
         results = await self._scheduler.run_parallel(
             branches, instr.mode or ForkMode.PARALLEL, runner
@@ -247,10 +301,10 @@ class Interpreter:
     @staticmethod
     def _resolve_route_map(instr: Instruction, route: str) -> int:
         if instr.route_map is None:
-            raise RuntimeError(f"No route_map for instruction {instr!r}")
+            raise FluxioError(f"No route_map for instruction {instr!r}")
         mapping = dict(instr.route_map)
         if route not in mapping:
-            raise RuntimeError(f"Unknown route {route!r} in route_map")
+            raise FluxioError(f"Unknown route {route!r} — available: {sorted(mapping.keys())}")
         return mapping[route]
 
     @staticmethod

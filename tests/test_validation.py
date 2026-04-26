@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
-from fluxio import Pipeline, stage
+from fluxio import Pipeline, ValidationError, stage
 
 
 class UserInput(BaseModel):
@@ -28,7 +28,7 @@ async def test_input_schema_fails_on_wrong_type():
         return ctx
 
     async with Pipeline([loader], auto_parallel=False) as pipe:
-        with pytest.raises(RuntimeError, match="Input validation failed"):
+        with pytest.raises(ValidationError, match="Input validation failed"):
             await pipe.invoke({"user_id": "not-an-int"})
 
 
@@ -38,5 +38,5 @@ async def test_output_schema_fails_on_missing_write():
         return ctx
 
     async with Pipeline([broken], auto_parallel=False) as pipe:
-        with pytest.raises(RuntimeError, match="Output validation failed"):
+        with pytest.raises(ValidationError, match="Output validation failed"):
             await pipe.invoke({})

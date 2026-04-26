@@ -45,7 +45,13 @@ class StepHarness:
         async def emit(_nid: str, chunk: Any) -> None:
             chunks.append(chunk)
 
-        await self._executor.run(node_id, self._fn, c, emit)
+        async def terminal(fn: StageFunc, cc: Context) -> Any:
+            return await self._executor.run(node_id, fn, cc, emit)
+
+        # Go through the middleware chain so harness behaviour matches
+        # production. RetryMiddleware and CacheMiddleware self-bypass for
+        # STREAM stages, so this does not duplicate or freeze chunks.
+        await self._chain.run(self._fn, c, terminal)
         return chunks
 
     @staticmethod

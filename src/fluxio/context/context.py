@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from pyrsistent import pmap
 
+from fluxio.errors import FluxioError
+
 if TYPE_CHECKING:
     from pyrsistent import PMap
 
 
-class MergeConflictError(Exception):
+class MergeConflictError(FluxioError):
     def __init__(self, conflicting_keys: list[str], branch_names: list[str]) -> None:
         self.conflicting_keys = conflicting_keys
         self.branch_names = branch_names
@@ -105,8 +108,30 @@ class Context:
         )
 
     def snapshot(self) -> dict[str, Any]:
-        return dict(self._data)
+        """Return a deep copy of the underlying data.
+
+        Deep-copying makes the snapshot a safe boundary: callers may freely
+        mutate the returned dict (or its nested mutable values) without
+        corrupting the live Context, and stored snapshots (checkpoints, cache
+        entries) cannot be silently aliased back into the live PMap.
+        """
+        return copy.deepcopy(dict(self._data))
 
     @staticmethod
-    def from_snapshot(data: dict[str, Any], name: str = "restored") -> Context:
-        return Context(_data=pmap(data), _written=frozenset(), name=name)
+    def from_snapshot(
+        data: dict[str, Any],
+        name: str = "restored",
+        written: frozenset[str] | None = None,
+    ) -> Context:
+        """Reconstruct a Context from a snapshot dict.
+
+        ``written`` defaults to empty (durable resume restores a context with
+        no pending local writes). Callers that need to preserve the original
+        write set — notably ``CacheMiddleware`` returning a cached branch
+        result that must merge correctly — pass it explicitly.
+        """
+        return Context(
+            _data=pmap(copy.deepcopy(data)),
+            _written=written if written is not None else frozenset(),
+            name=name,
+        )

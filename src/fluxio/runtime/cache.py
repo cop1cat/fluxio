@@ -11,6 +11,7 @@ from typing import Any
 class CacheEntry:
     value: dict[str, Any]
     created_at: float
+    written: tuple[str, ...] = ()
 
 
 class CacheStore(ABC):

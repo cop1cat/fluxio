@@ -56,3 +56,15 @@ def test_auto_parallelism():
     c = Compiler(auto_parallel=True).compile([p1, p2])
     ops = [i.op for i in c.instructions]
     assert OpCode.FORK in ops
+
+
+def test_empty_route_body_raises():
+    """Regression: a route with an empty body must be a CompilationError, not a silent no-op."""
+    from fluxio import Send
+
+    @stage
+    async def router(ctx):
+        return Send("done")
+
+    with pytest.raises(CompilationError, match="empty body"):
+        Compiler(auto_parallel=False).compile([router, {"done": []}])

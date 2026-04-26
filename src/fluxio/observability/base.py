@@ -11,6 +11,17 @@ class BaseCallback:
 
     Subclass and override the events you care about; all hooks default to no-op.
     Attach via ``Pipeline(callbacks=[MyCallback()])``.
+
+    **Exception contract.** Callbacks are best-effort. The interpreter wraps
+    every dispatch in a guard: if your callback raises, the exception is
+    logged at ``WARNING`` to the ``fluxio.interpreter`` logger and the
+    pipeline continues. This protects user logic from flaky observability
+    sinks (Langfuse outages, Prometheus push failures) and guarantees that
+    a callback exception in ``on_error`` cannot replace the original stage
+    exception in the user's traceback.
+
+    If your callback needs to fail loudly, log/alert from inside it — do
+    not rely on raising to halt the pipeline.
     """
 
     async def on_pipeline_start(self, run_id: str, ctx: Context) -> None: ...

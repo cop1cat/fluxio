@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from fluxio.api.parallel import Parallel
 from fluxio.api.primitives import ForkMode, NodeType
 from fluxio.compiler.bytecode import CompiledPipeline, Instruction, OpCode
+from fluxio.errors import FluxioError
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger("fluxio.compiler")
 
 
-class CompilationError(Exception):
+class CompilationError(FluxioError):
     def __init__(self, message: str, node_ids: list[str] | None = None) -> None:
         super().__init__(message)
         self.message = message
@@ -158,6 +159,11 @@ class Compiler:
         for route_name, body in routes.items():
             route_map_ips[route_name] = len(instructions)
             sub_nodes = self._unwrap_route_body(body)
+            if not sub_nodes:
+                raise CompilationError(
+                    f"Route {route_name!r} has an empty body — "
+                    f"a route must contain at least one stage"
+                )
             normalized = self._auto_parallelize(sub_nodes) if self._auto_parallel else sub_nodes
             for sub in normalized:
                 if isinstance(sub, Parallel):
@@ -271,7 +277,13 @@ class Compiler:
                 else:
                     break
             if len(group) > 1:
-                _logger.debug(
+                # Logged at WARNING because auto-parallelism is an implicit
+                # transformation: the user wrote a sequential list and got
+                # concurrent execution. Surfacing it makes the change visible
+                # in default-configured loggers; users who want to silence
+                # it can filter the ``fluxio.compiler`` logger or pass
+                # ``auto_parallel=False``.
+                _logger.warning(
                     "auto-parallelized independent stages: %s",
                     [getattr(n, "__name__", repr(n)) for n in group],
                 )
@@ -283,14 +295,20 @@ class Compiler:
 
     @staticmethod
     def _independent(group: list[Node], candidate: Node) -> bool:
+        # Auto-parallelism requires BOTH reads and writes to be explicitly
+        # declared on every stage in the group. ``None`` means the user did
+        # not declare them — we conservatively refuse to fold. An empty
+        # frozenset is also treated as "undeclared" so the empty-set sentinel
+        # cannot accidentally enable auto-parallelism for stages whose true
+        # data dependencies are unknown.
         c_reads = getattr(candidate, "__fluxio_reads__", None)
         c_writes = getattr(candidate, "__fluxio_writes__", None)
-        if c_reads is None or c_writes is None:
+        if not c_reads and not c_writes:
             return False
         for existing in group:
             e_reads = getattr(existing, "__fluxio_reads__", None)
             e_writes = getattr(existing, "__fluxio_writes__", None)
-            if e_reads is None or e_writes is None:
+            if not e_reads and not e_writes:
                 return False
             if e_writes & c_reads or c_writes & e_reads or e_writes & c_writes:
                 return False
@@ -314,15 +332,24 @@ class Compiler:
 
     @staticmethod
     def _node_id(fn: Any, symbol_table: dict[str, Any]) -> str:
-        base = getattr(fn, "__name__", None) or repr(fn)
-        if base not in symbol_table:
-            return base
-        if symbol_table[base] is fn:
-            return base
+        # Use __name__ for the clean public id. On collision, prefer
+        # __qualname__ (which disambiguates closures across scopes) before
+        # falling back to a numeric "#N" suffix. The "#N" path remains
+        # registration-order dependent — a known limitation when two
+        # distinct functions share both __name__ and __qualname__ in one
+        # pipeline.
+        name = getattr(fn, "__name__", None) or repr(fn)
+        if name not in symbol_table:
+            return name
+        if symbol_table[name] is fn:
+            return name
+        qualname = getattr(fn, "__qualname__", None)
+        if qualname and qualname != name and qualname not in symbol_table:
+            return qualname
         n = 2
-        while f"{base}#{n}" in symbol_table:
+        while f"{name}#{n}" in symbol_table:
             n += 1
-        return f"{base}#{n}"
+        return f"{name}#{n}"
 
     @staticmethod
     def _register(

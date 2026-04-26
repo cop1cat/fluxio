@@ -1,9 +1,10 @@
 from fluxio.api.parallel import Parallel
 from fluxio.api.pipeline import Pipeline, RunIDInUseError
-from fluxio.api.primitives import ForkMode, NodeResult, NodeType, Send
+from fluxio.api.primitives import ForkMode, NodeType, Send
 from fluxio.api.stage import stage
 from fluxio.compiler.compiler import CompilationError
 from fluxio.context.context import Context, MergeConflictError
+from fluxio.errors import FluxioError, NoCheckpointError, ValidationError
 from fluxio.observability.base import BaseCallback
 from fluxio.observability.logging import LoggingCallback
 from fluxio.runtime.cache import CacheStore, InMemoryCache
@@ -27,13 +28,14 @@ __all__ = [
     "CircuitOpenError",
     "CompilationError",
     "Context",
+    "FluxioError",
     "ForkMode",
     "InMemoryCache",
     "InMemoryStore",
     "LoggingCallback",
     "MergeConflictError",
     "Middleware",
-    "NodeResult",
+    "NoCheckpointError",
     "NodeType",
     "Parallel",
     "Pipeline",
@@ -41,6 +43,7 @@ __all__ = [
     "RetryMiddleware",
     "RunIDInUseError",
     "Send",
+    "ValidationError",
     "stage",
 ]
 
@@ -50,6 +53,10 @@ def __getattr__(name: str) -> object:
         from fluxio.store.redis import RedisStore
 
         return RedisStore
+    if name == "LangfuseCallback":
+        from fluxio.observability.langfuse import LangfuseCallback
+
+        return LangfuseCallback
     if name == "StepHarness":
         from fluxio.testing.harness import StepHarness
 
@@ -58,4 +65,8 @@ def __getattr__(name: str) -> object:
         from fluxio.testing.fixtures import make_ctx
 
         return make_ctx
-    raise AttributeError(name)
+    raise AttributeError(
+        f"module 'fluxio' has no attribute {name!r}. "
+        f"Optional names exposed via extras: RedisStore (fluxio[redis]), "
+        f"LangfuseCallback (fluxio[langfuse]), StepHarness, make_ctx."
+    )
