@@ -1395,7 +1395,7 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">durable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
 </code></pre></div>
-<p>Before every <code>CALL</code> instruction the interpreter saves <code>ctx.snapshot()</code> together with the instruction pointer. If the stage raises, a final checkpoint is written with <code>error=True</code> and the exception propagates.</p>
+<p>Before every <code>CALL</code> instruction the interpreter saves <code>ctx.snapshot()</code> together with the instruction pointer. If the stage raises, the last successful checkpoint is preserved untouched and the exception propagates — <code>resume=True</code> will restart from that checkpoint and replay the failing stage cleanly.</p>
 <h2 id="fresh-runs-vs-resume">Fresh runs vs resume<a class="headerlink" href="#fresh-runs-vs-resume" title="Permanent link">&para;</a></h2>
 <p>The default behaviour is <strong>always fresh</strong>. If a checkpoint exists for the given <code>run_id</code>, it is deleted and the run starts from scratch.</p>
 <p>To continue from the last checkpoint, pass <code>resume=True</code>:</p>

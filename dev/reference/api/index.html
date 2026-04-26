@@ -1134,10 +1134,43 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fluxio.Pipeline.invoke" class="md-nav__link">
     <span class="md-ellipsis">
       
         invoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.run_step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_step
       
     </span>
   </a>
@@ -1223,6 +1256,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Context.from_snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_snapshot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Context.snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        snapshot
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1523,10 +1584,43 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fluxio.Pipeline.invoke" class="md-nav__link">
     <span class="md-ellipsis">
       
         invoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        replay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Pipeline.run_step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_step
       
     </span>
   </a>
@@ -1612,6 +1706,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Context.from_snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_snapshot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxio.Context.snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        snapshot
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1930,6 +2052,65 @@ to ensure the thread pool shuts down cleanly.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="fluxio.Pipeline.diff" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">diff</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#fluxio.Pipeline.diff" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diff</span><span class="p">(</span><span class="n">run_id_a</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_id_b</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compare <code>ctx_snapshot</code> between two stored checkpoints.</p>
+<p>Returns a dict mapping each differing key to <code>{"a": value_a, "b": value_b}</code>.
+Keys present in only one snapshot show up with <code>None</code> on the other side.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if no <code>checkpoint_store</code> was configured.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="fluxio.errors.NoCheckpointError">NoCheckpointError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if either <code>run_id</code> has no stored checkpoint.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="fluxio.Pipeline.invoke" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">invoke</span>
 
@@ -2031,6 +2212,151 @@ Raises <code>KeyError</code> if no checkpoint exists. Requires
 <div class="doc doc-object doc-function">
 
 
+<h3 id="fluxio.Pipeline.replay" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">replay</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#fluxio.Pipeline.replay" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">replay</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">from_step</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Context</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Re-run a pipeline from a stored checkpoint.</p>
+<p>Loads the checkpoint identified by <code>run_id</code> and continues execution
+from the saved instruction pointer. If <code>from_step</code> is provided, the
+checkpoint is rewritten so execution resumes from that step's
+<code>step_start</code> event.</p>
+<p>Requires a configured <code>checkpoint_store</code> (passing <code>durable=True</code>
+on the constructor is sufficient — replay forces durable mode for
+the inner run regardless). The whole replay (including any
+<code>from_step</code> rewrite) is held under the run_id lock, so concurrent
+replays of the same run_id raise :class:<code>RunIDInUseError</code>.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if no <code>checkpoint_store</code> was configured.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="fluxio.errors.NoCheckpointError">NoCheckpointError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if no checkpoint exists for <code>run_id</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="KeyError">KeyError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if <code>from_step</code> is not a step in this pipeline.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="fluxio.RunIDInUseError (fluxio.api.pipeline.RunIDInUseError)" href="#fluxio.RunIDInUseError">RunIDInUseError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if another replay/invoke for <code>run_id</code> is in flight.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="fluxio.Pipeline.run_step" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">run_step</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#fluxio.Pipeline.run_step" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_step</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">Context</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Context</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Execute a single stage in isolation, mostly for testing.</p>
+<p>Looks up <code>step_name</code> in the compiled symbol table and runs it
+through the pipeline's middleware chain. Pipeline-level concerns
+(callbacks, checkpoints, validation opcodes, routing, parallelism)
+are NOT applied — this is a focused harness, not a substitute for
+<code>invoke</code>.</p>
+<p>If the stage returns a :class:<code>Send</code>, its <code>patch</code> is merged into
+the input context and the resulting context is returned (the route
+itself is ignored, since there is no following dict block here).</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="KeyError">KeyError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if <code>step_name</code> is not a stage in this pipeline.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="fluxio.Pipeline.stream" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">stream</span>
 
@@ -2052,6 +2378,9 @@ Raises <code>KeyError</code> if no checkpoint exists. Requires
         <p>Run the pipeline and yield chunks from STREAM stages as they arrive.</p>
 <p>Chunks from multiple STREAM stages are yielded in the order produced.
 Use an <code>on_step_stream</code> callback if you need to tag chunks by stage.</p>
+<p>With <code>durable=True</code> the run_id is gated by the same single-flight
+lock as <code>invoke</code>: a concurrent <code>stream</code> or <code>invoke</code> on the same
+run_id raises :class:<code>RunIDInUseError</code>.</p>
 
 
     </div>
@@ -2350,6 +2679,62 @@ and reconciled at merge time; two branches writing the same key raise
 
 
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="fluxio.Context.from_snapshot" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_snapshot</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#fluxio.Context.from_snapshot" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_snapshot</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;restored&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">written</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Context</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Reconstruct a Context from a snapshot dict.</p>
+<p><code>written</code> defaults to empty (durable resume restores a context with
+no pending local writes). Callers that need to preserve the original
+write set — notably <code>CacheMiddleware</code> returning a cached branch
+result that must merge correctly — pass it explicitly.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="fluxio.Context.snapshot" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">snapshot</span>
+
+
+<a href="#fluxio.Context.snapshot" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">snapshot</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return a deep copy of the underlying data.</p>
+<p>Deep-copying makes the snapshot a safe boundary: callers may freely
+mutate the returned dict (or its nested mutable values) without
+corrupting the live Context, and stored snapshots (checkpoints, cache
+entries) cannot be silently aliased back into the live PMap.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -2378,6 +2763,12 @@ and reconciled at merge time; two branches writing the same key raise
     <div class="doc doc-contents first">
 
 
+
+        <p>Signal a routing decision from a router stage.</p>
+<p>Returned (instead of a <code>Context</code>) by a stage immediately followed by a
+<code>dict</code> routing block. The <code>route</code> selects which dict key's body to
+execute next; <code>patch</code> is merged into the live context as soon as the
+router returns, before the route lookup happens.</p>
 
 
 
@@ -2691,6 +3082,15 @@ calling the stage, until <code>recovery_timeout</code> elapses.</p>
         <p>Hook interface for pipeline observability.</p>
 <p>Subclass and override the events you care about; all hooks default to no-op.
 Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
+<p><strong>Exception contract.</strong> Callbacks are best-effort. The interpreter wraps
+every dispatch in a guard: if your callback raises, the exception is
+logged at <code>WARNING</code> to the <code>fluxio.interpreter</code> logger and the
+pipeline continues. This protects user logic from flaky observability
+sinks (Langfuse outages, Prometheus push failures) and guarantees that
+a callback exception in <code>on_error</code> cannot replace the original stage
+exception in the user's traceback.</p>
+<p>If your callback needs to fail loudly, log/alert from inside it — do
+not rely on raising to halt the pipeline.</p>
 
 
 
@@ -2930,7 +3330,7 @@ Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="Exception">Exception</span></code></p>
+              Bases: <code><span title="fluxio.errors.FluxioError">FluxioError</span></code></p>
 
 
 
@@ -2979,7 +3379,7 @@ Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="Exception">Exception</span></code></p>
+              Bases: <code><span title="fluxio.errors.FluxioError">FluxioError</span></code></p>
 
 
 
@@ -3025,7 +3425,7 @@ Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="Exception">Exception</span></code></p>
+              Bases: <code><span title="fluxio.errors.FluxioError">FluxioError</span></code></p>
 
 
 
@@ -3054,7 +3454,7 @@ Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="RuntimeError">RuntimeError</span></code></p>
+              Bases: <code><span title="fluxio.errors.FluxioError">FluxioError</span></code></p>
 
 
 
@@ -3085,7 +3485,7 @@ Attach via <code>Pipeline(callbacks=[MyCallback()])</code>.</p>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="Exception">Exception</span></code></p>
+              Bases: <code><span title="fluxio.errors.FluxioError">FluxioError</span></code></p>
 
 
 

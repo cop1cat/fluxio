@@ -1406,7 +1406,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run_step</span><span class="p">(</span><span class="s2">&quot;fetch_user&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
 </code></pre></div>
 <h3 id="replay"><code>replay</code> — повтор по чекпоинту<a class="headerlink" href="#replay" title="Permanent link">&para;</a></h3>
-<p>Перезапуск пайплайна с сохранённого состояния. Требует <code>durable=True</code>:</p>
+<p>Перезапуск пайплайна с сохранённого состояния. Нужен настроенный <code>checkpoint_store</code> (<code>durable=True</code> его создаёт автоматически — <code>replay</code> форсит durable внутри себя):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">await</span> <span class="n">pipe</span><span class="o">.</span><span class="n">replay</span><span class="p">(</span><span class="s2">&quot;req-1&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="explain"><code>explain</code> — что получилось после компиляции<a class="headerlink" href="#explain" title="Permanent link">&para;</a></h3>
